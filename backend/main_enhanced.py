@@ -229,14 +229,57 @@ def get_or_create_model(symbol: str) -> Dict[str, Any]:
     
     return models_cache[symbol]
 
+def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
+    """Fetch real-time stock data using yfinance."""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="5d")
+
+        if hist.empty:
+            return None
+
+        current_price = hist['Close'].iloc[-1]
+        prev_close = hist['Close'].iloc[-2] if len(hist) >= 2 else current_price
+        change = current_price - prev_close
+        change_pct = (change / prev_close) * 100 if prev_close else 0
+
+        result = {
+            "symbol": symbol,
+            "price": round(float(current_price), 2),
+            "previousClose": round(float(prev_close), 2),
+            "change": round(float(change), 2),
+            "changePercent": round(float(change_pct), 2),
+            "high": round(float(hist['High'].iloc[-1]), 2),
+            "low": round(float(hist['Low'].iloc[-1]), 2),
+            "volume": int(hist['Volume'].iloc[-1]),
+            "name": symbol,
+        }
+
+        # Try to get extra info (may be rate-limited)
+        try:
+            info = ticker.info
+            result["name"] = info.get("shortName", symbol)
+            result["marketCap"] = info.get("marketCap")
+            result["peRatio"] = info.get("trailingPE")
+            result["fiftyTwoWeekHigh"] = info.get("fiftyTwoWeekHigh")
+            result["fiftyTwoWeekLow"] = info.get("fiftyTwoWeekLow")
+        except Exception:
+            pass  # Extra info is optional
+
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching stock data for {symbol}: {e}")
+        return None
+
+
 def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, Any]:
-    """Generate AI response to user message using NLP + LLM."""
+    """Generate AI response to user message using NLP + LLM + live stock data."""
     try:
         if nlp_processor is None:
             initialize_nlp()
 
         if nlp_processor is None:
-            # No NLP available at all - use LLM directly or template
             if llm_provider:
                 response_text = llm_provider.generate_response(
                     "general_question", {}, message
@@ -257,11 +300,50 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
         # Process message with NLP (returns tuple: intent, entities, confidence)
         intent, entities, confidence = nlp_processor.process_message(message)
 
-        # Generate response using LLM provider (with fallback chain)
-        if llm_provider:
-            response_text = llm_provider.generate_response(intent, entities, message)
+        # Fetch real stock data if a symbol was detected
+        stock_data = None
+        symbol = entities.get("symbol")
+        if symbol and intent in ("stock_prediction", "technical_analysis", "sensitivity_analysis"):
+            stock_data = fetch_stock_data(symbol)
+
+        # Build response text with real data
+        if stock_data:
+            price = stock_data["price"]
+            change = stock_data["change"]
+            change_pct = stock_data["changePercent"]
+            direction = "up" if change >= 0 else "down"
+            sign = "+" if change >= 0 else ""
+            name = stock_data.get("name", symbol)
+
+            response_text = (
+                f"{name} ({symbol}) is currently trading at ${price:.2f}, "
+                f"{direction} {sign}{change:.2f} ({sign}{change_pct:.2f}%) from the previous close.\n\n"
+            )
+
+            if stock_data.get("high") and stock_data.get("low"):
+                response_text += f"Today's range: ${stock_data['low']:.2f} - ${stock_data['high']:.2f}\n"
+            if stock_data.get("volume"):
+                response_text += f"Volume: {stock_data['volume']:,}\n"
+            if stock_data.get("fiftyTwoWeekHigh") and stock_data.get("fiftyTwoWeekLow"):
+                response_text += f"52-week range: ${stock_data['fiftyTwoWeekLow']:.2f} - ${stock_data['fiftyTwoWeekHigh']:.2f}\n"
+            if stock_data.get("peRatio"):
+                response_text += f"P/E Ratio: {stock_data['peRatio']:.2f}\n"
+            if stock_data.get("marketCap"):
+                cap = stock_data["marketCap"]
+                if cap >= 1e12:
+                    response_text += f"Market Cap: ${cap/1e12:.2f}T\n"
+                elif cap >= 1e9:
+                    response_text += f"Market Cap: ${cap/1e9:.2f}B\n"
+                else:
+                    response_text += f"Market Cap: ${cap/1e6:.2f}M\n"
+
+            response_text += "\nNote: This is not financial advice. Always do your own research before making investment decisions."
         else:
-            response_text = handle_general_question(message)
+            # No stock data - use LLM/template response
+            if llm_provider:
+                response_text = llm_provider.generate_response(intent, entities, message)
+            else:
+                response_text = handle_general_question(message)
 
         # Save chat history if user is authenticated
         if user_id and ENHANCED_MODULES_AVAILABLE:
@@ -272,7 +354,7 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
 
         return {
             "message": response_text,
-            "stockData": None,
+            "stockData": stock_data,
             "charts": None,
             "confidence": confidence,
         }
@@ -356,11 +438,7 @@ async def chat(
     """Enhanced chat endpoint with user authentication."""
     try:
         user_id = current_user["id"] if current_user else None
-        
-        # Validate input
-        if ENHANCED_MODULES_AVAILABLE:
-            validate_api_request(request.message)
-        
+
         # Generate response
         response = generate_response(request.message, user_id)
         

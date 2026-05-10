@@ -86,6 +86,22 @@ class DatabaseManager:
         finally:
             session.close()
 
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Get user by username"""
+        session = self._get_session()
+        try:
+            user = session.query(User).filter(User.username == username).first()
+            if user:
+                result = self._user_to_dict(user)
+                result['user_id'] = user.id
+                return result
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get user by username {username}: {e}")
+            return None
+        finally:
+            session.close()
+
     def update_user(self, user_id: str, updates: Dict[str, Any]) -> bool:
         """Update user data"""
         session = self._get_session()

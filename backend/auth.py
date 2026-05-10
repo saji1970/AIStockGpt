@@ -106,24 +106,35 @@ class AuthManager:
     def register_user(self, user_data: UserCreate) -> UserResponse:
         """Register a new user"""
         try:
-            # Check if user already exists
+            # Check if email already exists
             existing_user = db_manager.get_user_by_email(user_data.email)
             if existing_user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Email already registered"
                 )
-            
+
+            # Determine username
+            username = user_data.username or user_data.email.split('@')[0]
+
+            # Check if username already exists
+            existing_username = db_manager.get_user_by_username(username)
+            if existing_username:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Username '{username}' is already taken"
+                )
+
             # Hash password
             hashed_password = self.hash_password(user_data.password)
-            
+
             # Create user data
             user_dict = {
                 "email": user_data.email,
                 "hashed_password": hashed_password,
                 "first_name": user_data.first_name,
                 "last_name": user_data.last_name,
-                "username": user_data.username or user_data.email.split('@')[0],
+                "username": username,
                 "is_active": True
             }
             

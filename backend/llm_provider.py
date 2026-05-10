@@ -24,7 +24,7 @@ OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "30"))
 
 # HuggingFace configuration
 HF_API_TOKEN = os.getenv("HF_API_TOKEN", "")
-HF_MODEL = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.3")
+HF_MODEL = os.getenv("HF_MODEL", "HuggingFaceH4/zephyr-7b-beta")
 HF_API_URL = "https://api-inference.huggingface.co/models"
 HF_TIMEOUT = int(os.getenv("HF_TIMEOUT", "30"))
 

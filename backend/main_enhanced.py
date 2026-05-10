@@ -230,11 +230,44 @@ def get_or_create_model(symbol: str) -> Dict[str, Any]:
     return models_cache[symbol]
 
 def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Fetch real-time stock data using yfinance."""
+    """Fetch real-time stock data via RapidAPI, with yfinance fallback."""
+    import requests as req
+
+    # Try Real-Time Finance Data API (RapidAPI) first - works in Docker/Railway
+    rapidapi_key = os.getenv("RAPIDAPI_KEY", "")
+    if rapidapi_key:
+        try:
+            url = "https://real-time-finance-data.p.rapidapi.com/stock-quote"
+            headers = {
+                "x-rapidapi-key": rapidapi_key,
+                "x-rapidapi-host": "real-time-finance-data.p.rapidapi.com",
+            }
+            resp = req.get(url, headers=headers, params={"symbol": symbol, "language": "en"}, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("status") == "OK" and data.get("data"):
+                    q = data["data"]
+                    return {
+                        "symbol": symbol,
+                        "price": round(float(q.get("price", 0)), 2),
+                        "previousClose": round(float(q.get("previous_close", 0)), 2),
+                        "change": round(float(q.get("change", 0)), 2),
+                        "changePercent": round(float(q.get("change_percent", 0)), 2),
+                        "high": round(float(q.get("high", 0)), 2),
+                        "low": round(float(q.get("low", 0)), 2),
+                        "volume": int(q.get("volume", 0)),
+                        "name": q.get("name", symbol),
+                        "open": round(float(q.get("open", 0)), 2),
+                    }
+            logger.warning(f"RapidAPI returned {resp.status_code} for {symbol}")
+        except Exception as e:
+            logger.warning(f"RapidAPI stock fetch failed for {symbol}: {e}")
+
+    # Fallback to yfinance
     try:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="5d")
+        hist = ticker.history(period="1mo")
 
         if hist.empty:
             return None
@@ -256,7 +289,6 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
             "name": symbol,
         }
 
-        # Try to get extra info (may be rate-limited)
         try:
             info = ticker.info
             result["name"] = info.get("shortName", symbol)
@@ -265,7 +297,7 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
             result["fiftyTwoWeekHigh"] = info.get("fiftyTwoWeekHigh")
             result["fiftyTwoWeekLow"] = info.get("fiftyTwoWeekLow")
         except Exception:
-            pass  # Extra info is optional
+            pass
 
         return result
     except Exception as e:
@@ -320,10 +352,14 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                 f"{direction} {sign}{change:.2f} ({sign}{change_pct:.2f}%) from the previous close.\n\n"
             )
 
+            if stock_data.get("open"):
+                response_text += f"Open: ${stock_data['open']:.2f}\n"
             if stock_data.get("high") and stock_data.get("low"):
-                response_text += f"Today's range: ${stock_data['low']:.2f} - ${stock_data['high']:.2f}\n"
+                response_text += f"Day range: ${stock_data['low']:.2f} - ${stock_data['high']:.2f}\n"
             if stock_data.get("volume"):
                 response_text += f"Volume: {stock_data['volume']:,}\n"
+            if stock_data.get("previousClose"):
+                response_text += f"Previous close: ${stock_data['previousClose']:.2f}\n"
             if stock_data.get("fiftyTwoWeekHigh") and stock_data.get("fiftyTwoWeekLow"):
                 response_text += f"52-week range: ${stock_data['fiftyTwoWeekLow']:.2f} - ${stock_data['fiftyTwoWeekHigh']:.2f}\n"
             if stock_data.get("peRatio"):

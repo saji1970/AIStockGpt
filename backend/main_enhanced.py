@@ -38,11 +38,11 @@ except ImportError:
 
 # Import new enhanced modules
 try:
-    from database import db_manager
-    from auth import auth_manager, get_current_active_user, UserCreate, UserLogin, Token
-    from security import (
-        SecurityMiddleware, 
-        rate_limit_public, 
+    from backend.database import db_manager
+    from backend.auth import auth_manager, get_current_active_user, UserCreate, UserLogin, Token
+    from backend.security import (
+        SecurityMiddleware,
+        rate_limit_public,
         rate_limit_authenticated,
         rate_limit_sensitive,
         validate_api_request,
@@ -53,8 +53,24 @@ try:
     )
     ENHANCED_MODULES_AVAILABLE = True
 except ImportError:
-    ENHANCED_MODULES_AVAILABLE = False
-    print("Warning: Enhanced modules not available, running in basic mode")
+    try:
+        from database import db_manager
+        from auth import auth_manager, get_current_active_user, UserCreate, UserLogin, Token
+        from security import (
+            SecurityMiddleware,
+            rate_limit_public,
+            rate_limit_authenticated,
+            rate_limit_sensitive,
+            validate_api_request,
+            check_suspicious_activity,
+            StockSymbolRequest,
+            ChatMessageRequest,
+            UserRegistrationRequest
+        )
+        ENHANCED_MODULES_AVAILABLE = True
+    except ImportError:
+        ENHANCED_MODULES_AVAILABLE = False
+        print("Warning: Enhanced modules not available, running in basic mode")
 
 # Create fallback decorators when enhanced modules are not available
 if not ENHANCED_MODULES_AVAILABLE:
@@ -606,8 +622,12 @@ async def startup_event():
 
     # Create database tables if they don't exist
     try:
-        from db_session import engine
-        from models import Base
+        try:
+            from backend.db_session import engine
+            from backend.models import Base
+        except ImportError:
+            from db_session import engine
+            from models import Base
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables initialized successfully")
     except Exception as e:

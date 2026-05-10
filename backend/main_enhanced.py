@@ -472,6 +472,8 @@ if ENHANCED_MODULES_AVAILABLE:
         try:
             user = auth_manager.register_user(user_data)
             return {"message": "User registered successfully", "user_id": user.user_id}
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -482,6 +484,8 @@ if ENHANCED_MODULES_AVAILABLE:
         try:
             tokens = auth_manager.login_user(user_data)
             return tokens
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=401, detail=str(e))
 

@@ -44,6 +44,10 @@ jinja2==3.1.2
 redis==5.0.1
 aioredis==2.0.1
 
+# NLP and LLM (Hugging Face + Ollama)
+sentence-transformers>=3.0.0
+huggingface-hub>=0.20.0
+
 # Additional utilities
 python-dotenv==1.0.0
 requests==2.31.0

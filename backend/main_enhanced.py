@@ -36,6 +36,21 @@ except ImportError:
     ORIGINAL_MODULES_AVAILABLE = False
     print("Warning: Original modules not available, running in enhanced-only mode")
 
+# Import enhanced NLP and LLM modules
+try:
+    from backend.nlp_enhanced import EnhancedNLPProcessor
+    from backend.llm_provider import LLMProvider, llm_provider
+    ENHANCED_NLP_AVAILABLE = True
+except ImportError:
+    try:
+        from nlp_enhanced import EnhancedNLPProcessor
+        from llm_provider import LLMProvider, llm_provider
+        ENHANCED_NLP_AVAILABLE = True
+    except ImportError:
+        ENHANCED_NLP_AVAILABLE = False
+        llm_provider = None
+        print("Warning: Enhanced NLP/LLM modules not available")
+
 # Import new enhanced modules
 try:
     from backend.database import db_manager
@@ -155,18 +170,28 @@ class EmailAlert(BaseModel):
     email: str = Field(..., description="Email address")
 
 def initialize_nlp():
-    """Initialize the NLP processor."""
+    """Initialize the NLP processor (enhanced or basic)."""
     global nlp_processor
-    if not ORIGINAL_MODULES_AVAILABLE:
-        logger.warning("NLP processor not available - original modules missing")
-        return
-    
-    try:
-        nlp_processor = NLPProcessor()
-        logger.info("NLP processor initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize NLP processor: {e}")
-        raise
+
+    # Try enhanced NLP first (sentence-transformers)
+    if ENHANCED_NLP_AVAILABLE:
+        try:
+            nlp_processor = EnhancedNLPProcessor()
+            logger.info("Enhanced NLP processor initialized (sentence-transformers)")
+            return
+        except Exception as e:
+            logger.warning(f"Enhanced NLP init failed, falling back to basic: {e}")
+
+    # Fall back to basic regex NLP
+    if ORIGINAL_MODULES_AVAILABLE:
+        try:
+            nlp_processor = NLPProcessor()
+            logger.info("Basic NLP processor initialized (regex)")
+        except Exception as e:
+            logger.error(f"Failed to initialize NLP processor: {e}")
+            raise
+    else:
+        logger.warning("No NLP processor available")
 
 def get_or_create_model(symbol: str) -> Dict[str, Any]:
     """Get or create a model for the given symbol."""
@@ -205,37 +230,59 @@ def get_or_create_model(symbol: str) -> Dict[str, Any]:
     return models_cache[symbol]
 
 def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, Any]:
-    """Generate AI response to user message."""
-    if not ORIGINAL_MODULES_AVAILABLE:
-        return {
-            "message": "Enhanced AI Stock GPT is running in basic mode. Original modules are not available.",
-            "stockData": None,
-            "charts": None,
-            "confidence": 0.0
-        }
-    
+    """Generate AI response to user message using NLP + LLM."""
     try:
         if nlp_processor is None:
             initialize_nlp()
-        
-        # Process the message
-        response = nlp_processor.process_message(message)
-        
+
+        if nlp_processor is None:
+            # No NLP available at all - use LLM directly or template
+            if llm_provider:
+                response_text = llm_provider.generate_response(
+                    "general_question", {}, message
+                )
+            else:
+                response_text = (
+                    "I'm AI Stock GPT. I can help with stock predictions, "
+                    "technical analysis, and portfolio management. "
+                    "Try asking about a specific stock like AAPL or TSLA."
+                )
+            return {
+                "message": response_text,
+                "stockData": None,
+                "charts": None,
+                "confidence": 0.0,
+            }
+
+        # Process message with NLP (returns tuple: intent, entities, confidence)
+        intent, entities, confidence = nlp_processor.process_message(message)
+
+        # Generate response using LLM provider (with fallback chain)
+        if llm_provider:
+            response_text = llm_provider.generate_response(intent, entities, message)
+        else:
+            response_text = handle_general_question(message)
+
         # Save chat history if user is authenticated
         if user_id and ENHANCED_MODULES_AVAILABLE:
             try:
-                db_manager.save_chat_message(user_id, message, response["message"])
+                db_manager.save_chat_message(user_id, message, response_text)
             except Exception as e:
                 logger.warning(f"Failed to save chat history: {e}")
-        
-        return response
+
+        return {
+            "message": response_text,
+            "stockData": None,
+            "charts": None,
+            "confidence": confidence,
+        }
     except Exception as e:
         logger.error(f"Error generating response: {e}")
         return {
             "message": f"Sorry, I encountered an error: {str(e)}",
             "stockData": None,
             "charts": None,
-            "confidence": 0.0
+            "confidence": 0.0,
         }
 
 def handle_general_question(message: str) -> str:

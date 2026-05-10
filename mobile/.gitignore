@@ -1,0 +1,12 @@
+node_modules/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/build/
+.metro-health-check*
+*.hprof
+*.apk
+*.aab

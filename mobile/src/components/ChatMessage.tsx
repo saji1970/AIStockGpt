@@ -5,13 +5,16 @@ import StockCard from './StockCard';
 
 interface StockData {
   symbol: string;
-  currentPrice: number;
-  predictedPrice: number;
-  priceChange: number;
-  priceChangePercent: number;
-  prediction: string;
-  confidence: number;
-  metrics?: Record<string, any>;
+  name?: string;
+  price: number;
+  previousClose?: number;
+  change: number;
+  changePercent: number;
+  high?: number;
+  low?: number;
+  open?: number;
+  volume?: number;
+  marketCap?: number;
 }
 
 interface Props {

@@ -1,0 +1,38 @@
+steps:
+  # Build frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'Dockerfile.frontend', '-t', 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:latest', '.']
+
+  # Push frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:latest']
+
+  # Deploy frontend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ai-stock-gpt-frontend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '80'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '5'
+
+# Store images in Google Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:latest'
+
+# Build timeout
+timeout: '600s'

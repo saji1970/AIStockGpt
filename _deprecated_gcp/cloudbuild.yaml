@@ -1,0 +1,97 @@
+steps:
+  # Build backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'Dockerfile.backend', '-t', 'gcr.io/$PROJECT_ID/ai-stock-gpt-backend:$COMMIT_SHA', '.']
+    id: 'build-backend'
+
+  # Build frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'Dockerfile.frontend', '-t', 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:$COMMIT_SHA', '.']
+    id: 'build-frontend'
+
+  # Push backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/ai-stock-gpt-backend:$COMMIT_SHA']
+    waitFor: ['build-backend']
+
+  # Push frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:$COMMIT_SHA']
+    waitFor: ['build-frontend']
+
+  # Deploy backend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ai-stock-gpt-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/ai-stock-gpt-backend:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--set-env-vars'
+      - 'PARALLEL_API_KEY=${_PARALLEL_API_KEY}'
+    waitFor: ['build-backend']
+
+  # Get backend URL and deploy frontend
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        BACKEND_URL=$(gcloud run services describe ai-stock-gpt-backend --region=us-central1 --format="value(status.url)")
+        gcloud run deploy ai-stock-gpt-frontend \
+          --image gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:$COMMIT_SHA \
+          --region us-central1 \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 80 \
+          --memory 512Mi \
+          --cpu 1 \
+          --max-instances 5 \
+          --set-env-vars REACT_APP_API_URL="$BACKEND_URL"
+    waitFor: ['build-frontend']
+
+  # Tag images with 'latest'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'gcr.io/$PROJECT_ID/ai-stock-gpt-backend:$COMMIT_SHA', 'gcr.io/$PROJECT_ID/ai-stock-gpt-backend:latest']
+    waitFor: ['build-backend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:$COMMIT_SHA', 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:latest']
+    waitFor: ['build-frontend']
+
+  # Push latest tags
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/ai-stock-gpt-backend:latest']
+    waitFor: ['build-backend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:latest']
+    waitFor: ['build-frontend']
+
+# Store images in Google Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/ai-stock-gpt-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/ai-stock-gpt-backend:latest'
+  - 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/ai-stock-gpt-frontend:latest'
+
+# Build timeout
+timeout: '1200s'
+
+# Substitution variables
+substitutions:
+  _PARALLEL_API_KEY: 'your-parallel-api-key-here'  # Set this in Cloud Build triggers

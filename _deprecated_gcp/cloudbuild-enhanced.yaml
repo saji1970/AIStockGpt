@@ -1,0 +1,32 @@
+﻿steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'Dockerfile.enhanced', '-t', 'gcr.io/stockbroker-28983/ai-stock-gpt-enhanced', '.']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/stockbroker-28983/ai-stock-gpt-enhanced']
+  
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ai-stock-gpt-enhanced'
+      - '--image'
+      - 'gcr.io/stockbroker-28983/ai-stock-gpt-enhanced'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '1'
+      - '--set-env-vars'
+      - 'JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production-9215,PARALLEL_API_KEY='
+
+images:
+  - 'gcr.io/stockbroker-28983/ai-stock-gpt-enhanced'

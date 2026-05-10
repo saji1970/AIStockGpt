@@ -1,0 +1,23 @@
+# App Engine configuration for React frontend
+# This will serve the built React app as static files
+
+runtime: python311
+service: frontend
+
+handlers:
+  # Serve static files
+  - url: /static
+    static_dir: build/static
+    secure: always
+
+  # Serve the main app
+  - url: /.*
+    static_files: build/index.html
+    upload: build/index.html
+    secure: always
+
+# No instances needed for static hosting
+automatic_scaling:
+  target_cpu_utilization: 0.0
+  min_instances: 0
+  max_instances: 0

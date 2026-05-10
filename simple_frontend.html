@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Stock GPT - Simple Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: flex;
+            min-height: 600px;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 500px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .user-message {
+            text-align: right;
+        }
+
+        .ai-message {
+            text-align: left;
+        }
+
+        .message-content {
+            display: inline-block;
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            word-wrap: break-word;
+        }
+
+        .user-message .message-content {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+        }
+
+        .ai-message .message-content {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+            background: #f9fafb;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .message-input:focus {
+            border-color: #0ea5e9;
+        }
+
+        .send-button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .sidebar {
+            width: 300px;
+            padding: 20px;
+            background: #f9fafb;
+        }
+
+        .stock-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #e5e7eb;
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .stock-symbol {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .stock-price {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 10px;
+        }
+
+        .stock-change {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+
+        .positive {
+            color: #10b981;
+        }
+
+        .negative {
+            color: #ef4444;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .typing-indicator {
+            display: inline-block;
+            padding: 15px 20px;
+            background: #f3f4f6;
+            border-radius: 20px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #9ca3af;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .quick-prompts {
+            margin-top: 20px;
+        }
+
+        .quick-prompts h3 {
+            margin-bottom: 10px;
+            color: #374151;
+        }
+
+        .prompt-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .prompt-button {
+            padding: 10px 15px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .prompt-button:hover {
+            background: #f3f4f6;
+            border-color: #0ea5e9;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .markdown-content {
+            line-height: 1.6;
+        }
+
+        .markdown-content h1 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #111827;
+        }
+
+        .markdown-content h2 {
+            font-size: 1.3rem;
+            margin: 20px 0 10px 0;
+            color: #374151;
+        }
+
+        .markdown-content h3 {
+            font-size: 1.1rem;
+            margin: 15px 0 8px 0;
+            color: #4b5563;
+        }
+
+        .markdown-content ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .markdown-content li {
+            margin: 5px 0;
+        }
+
+        .markdown-content strong {
+            color: #111827;
+        }
+
+        .markdown-content em {
+            color: #6b7280;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Stock GPT</h1>
+            <p>Intelligent Stock Analysis Assistant</p>
+            <div style="margin-top: 10px;">
+                <span class="status-indicator"></span>
+                <span id="status-text">Backend Connected</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="chat-area">
+                <div class="messages" id="messages">
+                    <div class="message ai-message">
+                        <div class="message-content">
+                            <div class="markdown-content">
+                                <h1>Welcome to AI Stock GPT! 🤖📈</h1>
+                                <p>I'm your intelligent stock analysis assistant. I can help you with:</p>
+                                <ul>
+                                    <li><strong>Stock Predictions</strong> - Get price predictions and analysis</li>
+                                    <li><strong>Technical Analysis</strong> - RSI, MACD, moving averages, and more</li>
+                                    <li><strong>Market Insights</strong> - Understand stock trends and patterns</li>
+                                </ul>
+                                <p><em>Try asking me about any stock like "What's the prediction for AAPL?" or "Analyze TSLA technical indicators"</em></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="loading" id="loading">
+                    <div class="typing-indicator">
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-container">
+                        <input type="text" id="messageInput" class="message-input" placeholder="Ask me about stock predictions, technical analysis, or market insights..." />
+                        <button id="sendButton" class="send-button">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="stock-card" id="stockCard" style="display: none;">
+                    <div class="stock-header">
+                        <div class="stock-symbol" id="stockSymbol">AAPL</div>
+                    </div>
+                    <div class="stock-price" id="stockPrice">$0.00</div>
+                    <div class="stock-change" id="stockChange">+0.00 (0.00%)</div>
+                    <div id="stockPrediction">Loading...</div>
+                </div>
+
+                <div class="quick-prompts">
+                    <h3>Quick Prompts</h3>
+                    <div class="prompt-buttons">
+                        <button class="prompt-button" onclick="sendQuickPrompt('What is the prediction for AAPL stock?')">
+                            📊 Predict AAPL stock
+                        </button>
+                        <button class="prompt-button" onclick="sendQuickPrompt('Analyze technical indicators for TSLA')">
+                            📈 TSLA Technical Analysis
+                        </button>
+                        <button class="prompt-button" onclick="sendQuickPrompt('Show me the analysis for MSFT')">
+                            💻 MSFT Analysis
+                        </button>
+                        <button class="prompt-button" onclick="sendQuickPrompt('What can you do?')">
+                            ❓ What can you do?
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const loading = document.getElementById('loading');
+        const stockCard = document.getElementById('stockCard');
+        const stockSymbol = document.getElementById('stockSymbol');
+        const stockPrice = document.getElementById('stockPrice');
+        const stockChange = document.getElementById('stockChange');
+        const stockPrediction = document.getElementById('stockPrediction');
+        const statusText = document.getElementById('status-text');
+
+        // Check backend connection
+        async function checkBackendConnection() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/status`);
+                if (response.ok) {
+                    statusText.textContent = 'Backend Connected';
+                    statusText.style.color = '#10b981';
+                } else {
+                    statusText.textContent = 'Backend Error';
+                    statusText.style.color = '#ef4444';
+                }
+            } catch (error) {
+                statusText.textContent = 'Backend Disconnected';
+                statusText.style.color = '#ef4444';
+            }
+        }
+
+        // Send message to backend
+        async function sendMessage(message) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error sending message:', error);
+                throw error;
+            }
+        }
+
+        // Add message to chat
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            
+            if (isUser) {
+                contentDiv.textContent = content;
+            } else {
+                contentDiv.innerHTML = content.replace(/\n/g, '<br>');
+            }
+            
+            messageDiv.appendChild(contentDiv);
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Show/hide loading indicator
+        function showLoading(show) {
+            loading.classList.toggle('show', show);
+            sendButton.disabled = show;
+            messageInput.disabled = show;
+        }
+
+        // Update stock card
+        function updateStockCard(stockData) {
+            if (!stockData) {
+                stockCard.style.display = 'none';
+                return;
+            }
+
+            stockCard.style.display = 'block';
+            stockSymbol.textContent = stockData.symbol;
+            stockPrice.textContent = `$${stockData.currentPrice.toFixed(2)}`;
+            
+            const change = stockData.predictedPrice - stockData.currentPrice;
+            const changePercent = (change / stockData.currentPrice) * 100;
+            
+            stockChange.textContent = `${change >= 0 ? '+' : ''}$${change.toFixed(2)} (${changePercent.toFixed(2)}%)`;
+            stockChange.className = `stock-change ${change >= 0 ? 'positive' : 'negative'}`;
+            
+            stockPrediction.textContent = stockData.prediction;
+        }
+
+        // Handle send message
+        async function handleSendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addMessage(message, true);
+            messageInput.value = '';
+
+            // Show loading
+            showLoading(true);
+
+            try {
+                // Send to backend
+                const response = await sendMessage(message);
+                
+                // Add AI response
+                addMessage(response.message);
+                
+                // Update stock card if data available
+                if (response.stockData) {
+                    updateStockCard(response.stockData);
+                }
+                
+            } catch (error) {
+                addMessage('Sorry, I encountered an error. Please try again.');
+                console.error('Error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Quick prompt function
+        function sendQuickPrompt(prompt) {
+            messageInput.value = prompt;
+            handleSendMessage();
+        }
+
+        // Event listeners
+        sendButton.addEventListener('click', handleSendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSendMessage();
+            }
+        });
+
+        // Check backend connection on load
+        checkBackendConnection();
+        setInterval(checkBackendConnection, 30000); // Check every 30 seconds
+    </script>
+</body>
+</html>

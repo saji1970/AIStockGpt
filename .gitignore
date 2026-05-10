@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables
+.env
+backend/.env
+
+# Build output
+build/
+dist/
+
+# Models and data (large files)
+models/*.h5
+models/*.pkl
+data/*.json
+data/*.csv
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Logs
+*.log
+logs/
+
+# Claude
+.claude/

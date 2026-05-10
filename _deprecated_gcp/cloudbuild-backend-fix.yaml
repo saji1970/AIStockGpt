@@ -1,0 +1,5 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'Dockerfile.backend', '-t', 'gcr.io/stockbroker-28983/ai-stock-gpt-backend', '.']
+images:
+  - 'gcr.io/stockbroker-28983/ai-stock-gpt-backend'

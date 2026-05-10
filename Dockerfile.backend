@@ -1,0 +1,37 @@
+# Use Python 3.11 slim image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies (including libpq for psycopg2)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy all necessary files
+COPY backend/ ./backend/
+COPY data_collector.py .
+COPY lstm_model.py .
+COPY sensitivity_analysis.py .
+COPY nlp_processor.py .
+COPY data_pipeline.py .
+COPY main.py .
+COPY config.py .
+
+# Create necessary directories
+RUN mkdir -p data models
+
+# Set environment variables
+ENV PYTHONPATH=/app
+
+# Railway sets PORT dynamically
+CMD ["sh", "-c", "uvicorn backend.main_enhanced:app --host 0.0.0.0 --port ${PORT:-8080}"]

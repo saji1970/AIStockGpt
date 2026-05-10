@@ -1,0 +1,21 @@
+﻿Enhanced AI Stock GPT v2.0 - Deployment URLs
+============================================
+
+Frontend (React App):
+https://storage.googleapis.com/ai-stock-gpt-frontend-enhanced/index.html
+
+Backend API:
+https://ai-stock-gpt-enhanced-1012090067429.us-central1.run.app
+
+API Documentation:
+https://ai-stock-gpt-enhanced-1012090067429.us-central1.run.app/docs
+
+Health Check:
+https://ai-stock-gpt-enhanced-1012090067429.us-central1.run.app/health
+
+Status:
+https://ai-stock-gpt-enhanced-1012090067429.us-central1.run.app/status
+
+Deployment Date: September 1, 2025
+Version: 2.0.0
+Status: ✅ Successfully Deployed

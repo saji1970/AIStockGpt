@@ -1,0 +1,87 @@
+/* Additional App-specific styles */
+.app-container {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.chat-container {
+  height: calc(100vh - 80px);
+  overflow: hidden;
+}
+
+.messages-container {
+  height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+/* Custom scrollbar for messages */
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .sidebar {
+    display: none;
+  }
+  
+  .chat-area {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 1rem;
+  }
+  
+  .input-area {
+    padding: 1rem;
+  }
+  
+  .messages-container {
+    height: calc(100vh - 180px);
+  }
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

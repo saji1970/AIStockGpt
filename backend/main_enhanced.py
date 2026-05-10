@@ -424,7 +424,7 @@ if ENHANCED_MODULES_AVAILABLE:
         """Register a new user."""
         try:
             user = auth_manager.register_user(user_data)
-            return {"message": "User registered successfully", "user_id": user["id"]}
+            return {"message": "User registered successfully", "user_id": user.user_id}
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 

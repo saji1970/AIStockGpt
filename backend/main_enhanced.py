@@ -686,6 +686,19 @@ async def health_check():
         "version": "2.0.0"
     }
 
+@app.get("/stock/quote/{symbol}")
+@rate_limit_public
+async def get_stock_quote(symbol: str):
+    """Public endpoint to fetch live stock quote."""
+    try:
+        data = fetch_stock_data(symbol.upper())
+        if data:
+            return {"status": "ok", "data": data}
+        return {"status": "error", "message": f"Could not fetch data for {symbol}", "data": None}
+    except Exception as e:
+        logger.error(f"Stock quote error for {symbol}: {e}")
+        return {"status": "error", "message": str(e), "data": None}
+
 @app.post("/chat")
 @rate_limit_authenticated
 async def chat(
@@ -869,20 +882,30 @@ if ENHANCED_MODULES_AVAILABLE:
             for portfolio in portfolios:
                 total_invested = 0.0
                 total_current = 0.0
+                has_live_data = False
                 for stock in portfolio.get('stocks', []):
                     shares = stock.get('shares', 0)
                     purchase_price = stock.get('purchase_price', 0)
                     cost = shares * purchase_price
                     total_invested += cost
-                    live = fetch_stock_data(stock['symbol'])
-                    if live:
-                        total_current += shares * live['price']
-                    else:
-                        total_current += cost  # fallback to cost if live unavailable
+                    try:
+                        live = fetch_stock_data(stock['symbol'])
+                        if live and live.get('price'):
+                            total_current += shares * live['price']
+                            has_live_data = True
+                            logger.info(f"Portfolio list: {stock['symbol']} live price=${live['price']}")
+                        else:
+                            total_current += cost
+                            logger.warning(f"Portfolio list: No live data for {stock['symbol']}, using cost ${cost}")
+                    except Exception as e:
+                        total_current += cost
+                        logger.error(f"Portfolio list: fetch_stock_data failed for {stock['symbol']}: {e}")
                 portfolio['total_value'] = round(total_current, 2)
                 portfolio['total_gain_loss'] = round(total_current - total_invested, 2)
+                portfolio['has_live_data'] = has_live_data
             return {"portfolios": portfolios}
         except Exception as e:
+            logger.error(f"Portfolio list error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/portfolio/{portfolio_id}/summary")

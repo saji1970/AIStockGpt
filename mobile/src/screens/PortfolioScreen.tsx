@@ -1,5 +1,5 @@
 import React, {useState, useCallback} from 'react';
-import {View, Text, FlatList, TouchableOpacity, TextInput, Modal, StyleSheet, Alert, ActivityIndicator, RefreshControl} from 'react-native';
+import {View, Text, FlatList, ScrollView, TouchableOpacity, TextInput, Modal, StyleSheet, Alert, ActivityIndicator, RefreshControl} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import PortfolioCard from '../components/PortfolioCard';
 import * as api from '../api/client';
@@ -11,6 +11,20 @@ interface Portfolio {
   total_value: number;
   total_gain_loss: number;
   stocks: any[];
+}
+
+interface PortfolioDetail {
+  id: string;
+  name: string;
+  description?: string;
+  stocks: any[];
+  summary: {
+    total_invested: number;
+    total_current_value: number;
+    total_gain_loss: number;
+    total_gain_loss_percent: number;
+    stock_count: number;
+  };
 }
 
 export default function PortfolioScreen() {
@@ -25,7 +39,8 @@ export default function PortfolioScreen() {
   const [creating, setCreating] = useState(false);
 
   // Detail modal
-  const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null);
+  const [selectedPortfolio, setSelectedPortfolio] = useState<PortfolioDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Add stock modal
   const [showAddStock, setShowAddStock] = useState(false);
@@ -85,8 +100,8 @@ export default function PortfolioScreen() {
       setStockShares('');
       setStockPrice('');
       setStockDate('');
-      // Refresh the selected portfolio
-      const updated = await api.getPortfolio(selectedPortfolio.id);
+      // Refresh with live data
+      const updated = await api.getPortfolioSummary(selectedPortfolio.id);
       setSelectedPortfolio(updated);
       fetchPortfolios();
     } catch (err: any) {
@@ -96,13 +111,48 @@ export default function PortfolioScreen() {
     }
   };
 
+  const handleDeleteStock = async (symbol: string) => {
+    if (!selectedPortfolio) return;
+    Alert.alert('Remove Stock', `Remove ${symbol} from this portfolio?`, [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.deleteStockFromPortfolio(selectedPortfolio.id, symbol);
+            const updated = await api.getPortfolioSummary(selectedPortfolio.id);
+            setSelectedPortfolio(updated);
+            fetchPortfolios();
+          } catch {
+            Alert.alert('Error', 'Failed to remove stock');
+          }
+        },
+      },
+    ]);
+  };
+
   const openPortfolio = async (id: string) => {
+    setLoadingDetail(true);
     try {
-      const data = await api.getPortfolio(id);
+      const data = await api.getPortfolioSummary(id);
       setSelectedPortfolio(data);
     } catch {
       Alert.alert('Error', 'Failed to load portfolio');
+    } finally {
+      setLoadingDetail(false);
     }
+  };
+
+  const formatCurrency = (val: number | null | undefined) => {
+    if (val == null) return '--';
+    return `$${val.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+  };
+
+  const formatPercent = (val: number | null | undefined) => {
+    if (val == null) return '';
+    const sign = val >= 0 ? '+' : '';
+    return `${sign}${val.toFixed(2)}%`;
   };
 
   if (loading) {
@@ -138,6 +188,14 @@ export default function PortfolioScreen() {
         )}
       />
 
+      {/* Loading overlay for detail fetch */}
+      {loadingDetail && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#6366f1" />
+          <Text style={styles.loadingText}>Fetching live prices...</Text>
+        </View>
+      )}
+
       {/* Create button */}
       <TouchableOpacity style={styles.fab} onPress={() => setShowCreate(true)} activeOpacity={0.8}>
         <Text style={styles.fabText}>+</Text>
@@ -165,21 +223,89 @@ export default function PortfolioScreen() {
       {/* Portfolio Detail Modal */}
       <Modal visible={!!selectedPortfolio} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modal, {maxHeight: '80%'}]}>
+          <View style={[styles.modal, {maxHeight: '85%'}]}>
             <Text style={styles.modalTitle}>{selectedPortfolio?.name}</Text>
             {selectedPortfolio?.description ? <Text style={styles.detailDesc}>{selectedPortfolio.description}</Text> : null}
 
-            <Text style={styles.sectionTitle}>Stocks</Text>
-            {(selectedPortfolio?.stocks || []).length === 0 ? (
-              <Text style={styles.emptySubtext}>No stocks in this portfolio</Text>
-            ) : (
-              (selectedPortfolio?.stocks || []).map((s: any, i: number) => (
-                <View key={i} style={styles.stockRow}>
-                  <Text style={styles.stockSymbol}>{s.symbol}</Text>
-                  <Text style={styles.stockDetail}>{s.shares} shares @ ${s.purchase_price?.toFixed(2)}</Text>
+            {/* Portfolio Summary */}
+            {selectedPortfolio?.summary && (
+              <View style={styles.summaryContainer}>
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>Total Value</Text>
+                    <Text style={styles.summaryValue}>{formatCurrency(selectedPortfolio.summary.total_current_value)}</Text>
+                  </View>
+                  <View style={[styles.summaryItem, {alignItems: 'flex-end'}]}>
+                    <Text style={styles.summaryLabel}>Total Invested</Text>
+                    <Text style={styles.summaryValue}>{formatCurrency(selectedPortfolio.summary.total_invested)}</Text>
+                  </View>
                 </View>
-              ))
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>Gain / Loss</Text>
+                    <Text style={[styles.summaryValue, {color: selectedPortfolio.summary.total_gain_loss >= 0 ? '#10b981' : '#ef4444'}]}>
+                      {selectedPortfolio.summary.total_gain_loss >= 0 ? '+' : ''}{formatCurrency(selectedPortfolio.summary.total_gain_loss)}
+                    </Text>
+                  </View>
+                  <View style={[styles.summaryItem, {alignItems: 'flex-end'}]}>
+                    <Text style={styles.summaryLabel}>Return</Text>
+                    <Text style={[styles.summaryValue, {color: selectedPortfolio.summary.total_gain_loss_percent >= 0 ? '#10b981' : '#ef4444'}]}>
+                      {formatPercent(selectedPortfolio.summary.total_gain_loss_percent)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
             )}
+
+            <Text style={styles.sectionTitle}>Holdings ({selectedPortfolio?.summary?.stock_count || 0})</Text>
+
+            <ScrollView style={styles.stockList} showsVerticalScrollIndicator={false}>
+              {(selectedPortfolio?.stocks || []).length === 0 ? (
+                <Text style={styles.emptySubtext}>No stocks in this portfolio. Tap "Add Stock" to get started.</Text>
+              ) : (
+                (selectedPortfolio?.stocks || []).map((s: any, i: number) => {
+                  const gainColor = s.gain_loss != null ? (s.gain_loss >= 0 ? '#10b981' : '#ef4444') : '#6b7280';
+                  return (
+                    <TouchableOpacity key={i} style={styles.stockCard} onLongPress={() => handleDeleteStock(s.symbol)} activeOpacity={0.8}>
+                      <View style={styles.stockHeader}>
+                        <View>
+                          <Text style={styles.stockSymbol}>{s.symbol}</Text>
+                          {s.name && s.name !== s.symbol ? <Text style={styles.stockName}>{s.name}</Text> : null}
+                        </View>
+                        <View style={{alignItems: 'flex-end'}}>
+                          <Text style={styles.stockCurrentPrice}>{formatCurrency(s.current_price)}</Text>
+                          {s.gain_loss_percent != null && (
+                            <Text style={[styles.stockGainBadge, {color: gainColor}]}>
+                              {s.gain_loss >= 0 ? '+' : ''}{s.gain_loss_percent.toFixed(2)}%
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.stockMetrics}>
+                        <View style={styles.stockMetric}>
+                          <Text style={styles.metricLabel}>Shares</Text>
+                          <Text style={styles.metricVal}>{s.shares}</Text>
+                        </View>
+                        <View style={styles.stockMetric}>
+                          <Text style={styles.metricLabel}>Avg Cost</Text>
+                          <Text style={styles.metricVal}>{formatCurrency(s.purchase_price)}</Text>
+                        </View>
+                        <View style={styles.stockMetric}>
+                          <Text style={styles.metricLabel}>Value</Text>
+                          <Text style={styles.metricVal}>{formatCurrency(s.current_value)}</Text>
+                        </View>
+                        <View style={styles.stockMetric}>
+                          <Text style={styles.metricLabel}>P/L</Text>
+                          <Text style={[styles.metricVal, {color: gainColor}]}>
+                            {s.gain_loss != null ? `${s.gain_loss >= 0 ? '+' : ''}${formatCurrency(s.gain_loss)}` : '--'}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setSelectedPortfolio(null)}>
@@ -226,18 +352,35 @@ const styles = StyleSheet.create({
   emptySubtext: {fontSize: 13, color: '#9ca3af', marginTop: 4},
   fab: {position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#6366f1', justifyContent: 'center', alignItems: 'center', elevation: 6},
   fabText: {color: '#fff', fontSize: 28, fontWeight: '300', marginTop: -2},
+  loadingOverlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center'},
+  loadingText: {color: '#fff', fontSize: 14, fontWeight: '600', marginTop: 10},
   modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20},
   modal: {backgroundColor: '#fff', borderRadius: 16, padding: 20},
   modalTitle: {fontSize: 20, fontWeight: '700', color: '#111827', marginBottom: 16},
   modalInput: {backgroundColor: '#f3f4f6', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, marginBottom: 12, color: '#111827'},
-  modalButtons: {flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 8},
+  modalButtons: {flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12},
   cancelBtn: {paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, backgroundColor: '#f3f4f6'},
   cancelText: {color: '#374151', fontWeight: '600'},
   confirmBtn: {paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, backgroundColor: '#6366f1'},
   confirmText: {color: '#fff', fontWeight: '600'},
   detailDesc: {fontSize: 13, color: '#6b7280', marginBottom: 12},
   sectionTitle: {fontSize: 15, fontWeight: '700', color: '#111827', marginTop: 12, marginBottom: 8},
-  stockRow: {flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f3f4f6'},
-  stockSymbol: {fontSize: 14, fontWeight: '700', color: '#111827'},
-  stockDetail: {fontSize: 13, color: '#6b7280'},
+  // Summary
+  summaryContainer: {backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, marginBottom: 4, borderWidth: 1, borderColor: '#e2e8f0'},
+  summaryRow: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8},
+  summaryItem: {flex: 1},
+  summaryLabel: {fontSize: 11, color: '#6b7280', marginBottom: 2},
+  summaryValue: {fontSize: 16, fontWeight: '700', color: '#111827'},
+  // Stock cards
+  stockList: {maxHeight: 300},
+  stockCard: {backgroundColor: '#f9fafb', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e5e7eb'},
+  stockHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8},
+  stockSymbol: {fontSize: 15, fontWeight: '700', color: '#111827'},
+  stockName: {fontSize: 11, color: '#6b7280', marginTop: 1},
+  stockCurrentPrice: {fontSize: 15, fontWeight: '700', color: '#111827'},
+  stockGainBadge: {fontSize: 12, fontWeight: '600', marginTop: 1},
+  stockMetrics: {flexDirection: 'row', justifyContent: 'space-between'},
+  stockMetric: {flex: 1},
+  metricLabel: {fontSize: 10, color: '#9ca3af'},
+  metricVal: {fontSize: 12, fontWeight: '600', color: '#374151', marginTop: 1},
 });

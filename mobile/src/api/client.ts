@@ -95,6 +95,16 @@ export async function getPortfolio(portfolioId: string) {
   return res.data;
 }
 
+export async function getPortfolioSummary(portfolioId: string) {
+  const res = await api.get(`/portfolio/${portfolioId}/summary`);
+  return res.data;
+}
+
+export async function deleteStockFromPortfolio(portfolioId: string, symbol: string) {
+  const res = await api.delete(`/portfolio/${portfolioId}/stock/${symbol}`);
+  return res.data;
+}
+
 export async function addStockToPortfolio(
   portfolioId: string,
   symbol: string,

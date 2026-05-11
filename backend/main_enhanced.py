@@ -863,9 +863,24 @@ if ENHANCED_MODULES_AVAILABLE:
     @app.get("/portfolio/list")
     @rate_limit_authenticated
     async def list_portfolios(current_user: Dict = Depends(get_current_active_user)):
-        """List user portfolios."""
+        """List user portfolios with live-computed totals."""
         try:
             portfolios = db_manager.get_user_portfolios(current_user["id"])
+            for portfolio in portfolios:
+                total_invested = 0.0
+                total_current = 0.0
+                for stock in portfolio.get('stocks', []):
+                    shares = stock.get('shares', 0)
+                    purchase_price = stock.get('purchase_price', 0)
+                    cost = shares * purchase_price
+                    total_invested += cost
+                    live = fetch_stock_data(stock['symbol'])
+                    if live:
+                        total_current += shares * live['price']
+                    else:
+                        total_current += cost  # fallback to cost if live unavailable
+                portfolio['total_value'] = round(total_current, 2)
+                portfolio['total_gain_loss'] = round(total_current - total_invested, 2)
             return {"portfolios": portfolios}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))

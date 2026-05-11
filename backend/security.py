@@ -33,7 +33,7 @@ ALLOWED_ORIGINS = [
 ALLOWED_ORIGINS = [o for o in ALLOWED_ORIGINS if o]
 
 # Input validation patterns
-STOCK_SYMBOL_PATTERN = r'^[A-Z]{1,5}$'
+STOCK_SYMBOL_PATTERN = r'^[A-Z]{1,5}(-[A-Z]{1,4})?(\.[A-Z])?$'
 EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 PASSWORD_PATTERN = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
 
@@ -287,10 +287,10 @@ def sanitize_stock_symbol(symbol: str) -> str:
     """Sanitize stock symbol input"""
     if not symbol:
         return ""
-    
-    # Remove non-alphabetic characters and limit length
-    sanitized = re.sub(r'[^A-Za-z]', '', symbol.upper())
-    return sanitized[:5]
+
+    # Allow letters, hyphens (crypto like BTC-USD), and dots (share classes like BRK.B)
+    sanitized = re.sub(r'[^A-Za-z0-9.\-]', '', symbol.upper())
+    return sanitized[:10]
 
 def sanitize_numeric_input(value: str) -> Optional[float]:
     """Sanitize numeric input"""

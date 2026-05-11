@@ -338,6 +338,67 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
         if symbol and intent in ("stock_prediction", "technical_analysis", "sensitivity_analysis"):
             stock_data = fetch_stock_data(symbol)
 
+        # Handle portfolio_management intent
+        portfolio_response = None
+        if intent == "portfolio_management" and user_id and ENHANCED_MODULES_AVAILABLE:
+            try:
+                portfolios = db_manager.get_user_portfolios(user_id)
+                if portfolios:
+                    portfolio_lines = []
+                    for portfolio in portfolios:
+                        portfolio_lines.append(f"\n**{portfolio['name']}**")
+                        p_total_invested = 0
+                        p_total_current = 0
+                        for s in portfolio.get('stocks', []):
+                            s_symbol = s['symbol']
+                            s_shares = s.get('shares', 0)
+                            s_purchase = s.get('purchase_price', 0)
+                            s_cost = s_shares * s_purchase
+                            p_total_invested += s_cost
+
+                            live = fetch_stock_data(s_symbol)
+                            if live:
+                                s_current_price = live['price']
+                                s_current_val = s_shares * s_current_price
+                                p_total_current += s_current_val
+                                s_gain = s_current_val - s_cost
+                                s_gain_pct = (s_gain / s_cost * 100) if s_cost > 0 else 0
+                                sign = "+" if s_gain >= 0 else ""
+                                portfolio_lines.append(
+                                    f"- **{s_symbol}**: {s_shares} shares | "
+                                    f"Bought ${s_purchase:.2f} -> Now ${s_current_price:.2f} | "
+                                    f"{sign}${s_gain:.2f} ({sign}{s_gain_pct:.1f}%)"
+                                )
+                            else:
+                                portfolio_lines.append(
+                                    f"- **{s_symbol}**: {s_shares} shares @ ${s_purchase:.2f} "
+                                    f"(live price unavailable)"
+                                )
+
+                        if p_total_invested > 0:
+                            p_gain = p_total_current - p_total_invested
+                            p_gain_pct = (p_gain / p_total_invested * 100)
+                            sign = "+" if p_gain >= 0 else ""
+                            portfolio_lines.append(
+                                f"\n**Portfolio Total**: ${p_total_current:,.2f} | "
+                                f"Invested: ${p_total_invested:,.2f} | "
+                                f"P/L: {sign}${p_gain:,.2f} ({sign}{p_gain_pct:.1f}%)"
+                            )
+
+                    portfolio_response = (
+                        "Here's your portfolio overview:\n"
+                        + "\n".join(portfolio_lines)
+                        + "\n\nNote: This is not financial advice. Always do your own research."
+                    )
+                else:
+                    portfolio_response = (
+                        "You don't have any portfolios yet. "
+                        "Create one from the Portfolio page and add your stocks, ETFs, "
+                        "or crypto holdings to track their performance!"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to fetch portfolio for chat: {e}")
+
         # Build response text with real data
         if stock_data:
             price = stock_data["price"]
@@ -374,6 +435,8 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                     response_text += f"Market Cap: ${cap/1e6:.2f}M\n"
 
             response_text += "\nNote: This is not financial advice. Always do your own research before making investment decisions."
+        elif portfolio_response:
+            response_text = portfolio_response
         else:
             # No stock data - use LLM/template response
             if llm_provider:
@@ -637,6 +700,99 @@ if ENHANCED_MODULES_AVAILABLE:
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
+    # NOTE: /portfolio/list must be registered BEFORE /portfolio/{portfolio_id}
+    # so that "list" is not captured as a portfolio_id path parameter.
+    @app.get("/portfolio/list")
+    @rate_limit_authenticated
+    async def list_portfolios(current_user: Dict = Depends(get_current_active_user)):
+        """List user portfolios."""
+        try:
+            portfolios = db_manager.get_user_portfolios(current_user["id"])
+            return {"portfolios": portfolios}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/portfolio/{portfolio_id}/summary")
+    @rate_limit_authenticated
+    async def get_portfolio_summary(
+        portfolio_id: str,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """Get portfolio with live prices, gain/loss per stock, and totals."""
+        try:
+            portfolio = db_manager.get_portfolio(portfolio_id)
+            if not portfolio or portfolio.get('user_id') != current_user['id']:
+                raise HTTPException(status_code=404, detail="Portfolio not found")
+
+            stocks = portfolio.get('stocks', [])
+            enriched_stocks = []
+            total_invested = 0.0
+            total_current_value = 0.0
+
+            for stock in stocks:
+                symbol = stock['symbol']
+                shares = stock.get('shares', 0)
+                purchase_price = stock.get('purchase_price', 0)
+                cost_basis = shares * purchase_price
+                total_invested += cost_basis
+
+                live_data = fetch_stock_data(symbol)
+                current_price = live_data['price'] if live_data else None
+                current_value = (shares * current_price) if current_price else None
+                gain_loss = (current_value - cost_basis) if current_value is not None else None
+                gain_loss_pct = ((gain_loss / cost_basis) * 100) if (gain_loss is not None and cost_basis > 0) else None
+
+                if current_value:
+                    total_current_value += current_value
+
+                enriched_stocks.append({
+                    'symbol': symbol,
+                    'shares': shares,
+                    'purchase_price': purchase_price,
+                    'purchase_date': stock.get('purchase_date'),
+                    'current_price': current_price,
+                    'cost_basis': round(cost_basis, 2),
+                    'current_value': round(current_value, 2) if current_value else None,
+                    'gain_loss': round(gain_loss, 2) if gain_loss is not None else None,
+                    'gain_loss_percent': round(gain_loss_pct, 2) if gain_loss_pct is not None else None,
+                    'name': live_data.get('name', symbol) if live_data else symbol,
+                })
+
+            total_gain_loss = total_current_value - total_invested
+            total_gain_loss_pct = ((total_gain_loss / total_invested) * 100) if total_invested > 0 else 0
+
+            return {
+                'id': portfolio.get('id'),
+                'name': portfolio.get('name'),
+                'description': portfolio.get('description'),
+                'stocks': enriched_stocks,
+                'summary': {
+                    'total_invested': round(total_invested, 2),
+                    'total_current_value': round(total_current_value, 2),
+                    'total_gain_loss': round(total_gain_loss, 2),
+                    'total_gain_loss_percent': round(total_gain_loss_pct, 2),
+                    'stock_count': len(enriched_stocks),
+                }
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Portfolio summary error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/portfolio/{portfolio_id}")
+    @rate_limit_authenticated
+    async def get_portfolio(
+        portfolio_id: str,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """Get portfolio details."""
+        try:
+            portfolio = db_manager.get_portfolio(portfolio_id)
+            return portfolio
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
     @app.post("/portfolio/{portfolio_id}/add-stock")
     @rate_limit_authenticated
     async def add_stock_to_portfolio(
@@ -657,28 +813,26 @@ if ENHANCED_MODULES_AVAILABLE:
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    @app.get("/portfolio/{portfolio_id}")
+    @app.delete("/portfolio/{portfolio_id}/stock/{symbol}")
     @rate_limit_authenticated
-    async def get_portfolio(
+    async def delete_stock_from_portfolio_endpoint(
         portfolio_id: str,
+        symbol: str,
         current_user: Dict = Depends(get_current_active_user)
     ):
-        """Get portfolio details."""
+        """Remove a stock from a portfolio."""
         try:
             portfolio = db_manager.get_portfolio(portfolio_id)
-            return portfolio
+            if not portfolio or portfolio.get('user_id') != current_user['id']:
+                raise HTTPException(status_code=404, detail="Portfolio not found")
+            result = db_manager.delete_stock_from_portfolio(portfolio_id, symbol)
+            if not result:
+                raise HTTPException(status_code=404, detail=f"Stock {symbol} not found in portfolio")
+            return {"message": f"Stock {symbol} removed from portfolio"}
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=404, detail=str(e))
-
-    @app.get("/portfolio/list")
-    @rate_limit_authenticated
-    async def list_portfolios(current_user: Dict = Depends(get_current_active_user)):
-        """List user portfolios."""
-        try:
-            portfolios = db_manager.get_user_portfolios(current_user["id"])
-            return {"portfolios": portfolios}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e))
 
     # Chat History Endpoint
     @app.get("/chat/history")

@@ -237,6 +237,25 @@ class DatabaseManager:
         finally:
             session.close()
 
+    def delete_stock_from_portfolio(self, portfolio_id: str, symbol: str) -> bool:
+        """Delete a stock from a portfolio by symbol."""
+        session = self._get_session()
+        try:
+            deleted = session.query(Stock).filter(
+                Stock.portfolio_id == portfolio_id,
+                Stock.symbol == symbol.upper()
+            ).delete()
+            session.commit()
+            if deleted:
+                logger.info(f"Stock {symbol} removed from portfolio {portfolio_id}")
+            return deleted > 0
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to delete stock from portfolio: {e}")
+            return False
+        finally:
+            session.close()
+
     def get_portfolio(self, user_id_or_portfolio_id: str, portfolio_id: str = None) -> Optional[Dict[str, Any]]:
         """Get portfolio data with stocks.
 

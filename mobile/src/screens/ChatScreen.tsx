@@ -1,5 +1,5 @@
-import React, {useState, useRef, useCallback} from 'react';
-import {View, TextInput, TouchableOpacity, FlatList, StyleSheet, Text, KeyboardAvoidingView, Platform} from 'react-native';
+import React, {useState, useRef, useCallback, useEffect} from 'react';
+import {View, TextInput, TouchableOpacity, FlatList, StyleSheet, Text, Keyboard, Platform, Animated} from 'react-native';
 import ChatMessage from '../components/ChatMessage';
 import TypingIndicator from '../components/TypingIndicator';
 import QuickPrompts from '../components/QuickPrompts';
@@ -18,6 +18,36 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const keyboardPadding = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (e: any) => {
+      Animated.timing(keyboardPadding, {
+        toValue: e.endCoordinates.height,
+        duration: Platform.OS === 'ios' ? 250 : 100,
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const onHide = () => {
+      Animated.timing(keyboardPadding, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? 250 : 100,
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [keyboardPadding]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -66,52 +96,51 @@ export default function ChatScreen() {
   const showQuickPrompts = messages.length === 0 && !isTyping;
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
-      <View style={styles.flex}>
-        {/* Welcome header when empty */}
-        {messages.length === 0 && (
-          <View style={styles.welcome}>
-            <Text style={styles.welcomeTitle}>AI Stock GPT</Text>
-            <Text style={styles.welcomeSubtitle}>Ask me about stocks, predictions, and market analysis</Text>
-          </View>
-        )}
-
-        {/* Quick prompts */}
-        {showQuickPrompts && <QuickPrompts onSelect={sendMessage} />}
-
-        {/* Messages */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.messageList}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({animated: true})}
-          ListFooterComponent={isTyping ? <TypingIndicator /> : null}
-        />
-
-        {/* Input bar */}
-        <View style={styles.inputBar}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask about a stock..."
-            placeholderTextColor="#9ca3af"
-            multiline
-            maxLength={1000}
-            editable={!isTyping}
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, (!input.trim() || isTyping) && styles.sendBtnDisabled]}
-            onPress={() => sendMessage(input)}
-            disabled={!input.trim() || isTyping}
-            activeOpacity={0.7}>
-            <Text style={styles.sendText}>Send</Text>
-          </TouchableOpacity>
+    <View style={styles.flex}>
+      {/* Welcome header when empty */}
+      {messages.length === 0 && (
+        <View style={styles.welcome}>
+          <Text style={styles.welcomeTitle}>AI Stock GPT</Text>
+          <Text style={styles.welcomeSubtitle}>Ask me about stocks, predictions, and market analysis</Text>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      )}
+
+      {/* Quick prompts */}
+      {showQuickPrompts && <QuickPrompts onSelect={sendMessage} />}
+
+      {/* Messages */}
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderItem}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.messageList}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({animated: true})}
+        ListFooterComponent={isTyping ? <TypingIndicator /> : null}
+        keyboardShouldPersistTaps="handled"
+      />
+
+      {/* Input bar */}
+      <Animated.View style={[styles.inputBar, {marginBottom: keyboardPadding}]}>
+        <TextInput
+          style={styles.input}
+          value={input}
+          onChangeText={setInput}
+          placeholder="Ask about a stock..."
+          placeholderTextColor="#9ca3af"
+          multiline
+          maxLength={1000}
+          editable={!isTyping}
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, (!input.trim() || isTyping) && styles.sendBtnDisabled]}
+          onPress={() => sendMessage(input)}
+          disabled={!input.trim() || isTyping}
+          activeOpacity={0.7}>
+          <Text style={styles.sendText}>Send</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
   );
 }
 

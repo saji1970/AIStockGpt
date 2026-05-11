@@ -230,44 +230,94 @@ def get_or_create_model(symbol: str) -> Dict[str, Any]:
     return models_cache[symbol]
 
 def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Fetch real-time stock data via RapidAPI, with yfinance fallback."""
+    """Fetch real-time stock data via RapidAPI, with Yahoo Finance and yfinance fallbacks."""
     import requests as req
 
     # Try Real-Time Finance Data API (RapidAPI) first - works in Docker/Railway
     rapidapi_key = os.getenv("RAPIDAPI_KEY", "")
     if rapidapi_key:
-        try:
-            url = "https://real-time-finance-data.p.rapidapi.com/stock-quote"
-            headers = {
-                "x-rapidapi-key": rapidapi_key,
-                "x-rapidapi-host": "real-time-finance-data.p.rapidapi.com",
-            }
-            resp = req.get(url, headers=headers, params={"symbol": symbol, "language": "en"}, timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("status") == "OK" and data.get("data"):
-                    q = data["data"]
-                    return {
-                        "symbol": symbol,
-                        "price": round(float(q.get("price", 0)), 2),
-                        "previousClose": round(float(q.get("previous_close", 0)), 2),
-                        "change": round(float(q.get("change", 0)), 2),
-                        "changePercent": round(float(q.get("change_percent", 0)), 2),
-                        "high": round(float(q.get("high", 0)), 2),
-                        "low": round(float(q.get("low", 0)), 2),
-                        "volume": int(q.get("volume", 0)),
-                        "name": q.get("name", symbol),
-                        "open": round(float(q.get("open", 0)), 2),
-                    }
-            logger.warning(f"RapidAPI returned {resp.status_code} for {symbol}")
-        except Exception as e:
-            logger.warning(f"RapidAPI stock fetch failed for {symbol}: {e}")
+        for attempt in range(2):
+            try:
+                url = "https://real-time-finance-data.p.rapidapi.com/stock-quote"
+                headers = {
+                    "x-rapidapi-key": rapidapi_key,
+                    "x-rapidapi-host": "real-time-finance-data.p.rapidapi.com",
+                }
+                resp = req.get(url, headers=headers, params={"symbol": symbol, "language": "en"}, timeout=20)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("status") == "OK" and data.get("data"):
+                        q = data["data"]
+                        return {
+                            "symbol": symbol,
+                            "price": round(float(q.get("price", 0)), 2),
+                            "previousClose": round(float(q.get("previous_close", 0)), 2),
+                            "change": round(float(q.get("change", 0)), 2),
+                            "changePercent": round(float(q.get("change_percent", 0)), 2),
+                            "high": round(float(q.get("high", 0)), 2),
+                            "low": round(float(q.get("low", 0)), 2),
+                            "volume": int(q.get("volume", 0)),
+                            "name": q.get("name", symbol),
+                            "open": round(float(q.get("open", 0)), 2),
+                        }
+                logger.warning(f"RapidAPI returned {resp.status_code} for {symbol} (attempt {attempt+1})")
+            except Exception as e:
+                logger.warning(f"RapidAPI stock fetch failed for {symbol} (attempt {attempt+1}): {e}")
 
-    # Fallback to yfinance
+    # Fallback: Direct Yahoo Finance v8 API (no library needed)
+    try:
+        yahoo_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+        yahoo_headers = {"User-Agent": "Mozilla/5.0"}
+        resp = req.get(yahoo_url, headers=yahoo_headers, params={"range": "5d", "interval": "1d"}, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            chart = data.get("chart", {}).get("result", [{}])[0]
+            meta = chart.get("meta", {})
+            indicators = chart.get("indicators", {}).get("quote", [{}])[0]
+            closes = indicators.get("close", [])
+            highs = indicators.get("high", [])
+            lows = indicators.get("low", [])
+            volumes = indicators.get("volume", [])
+
+            # Filter out None values
+            valid_closes = [c for c in closes if c is not None]
+            if valid_closes:
+                current_price = valid_closes[-1]
+                prev_close = meta.get("chartPreviousClose") or meta.get("previousClose") or (valid_closes[-2] if len(valid_closes) >= 2 else current_price)
+                change = current_price - prev_close
+                change_pct = (change / prev_close) * 100 if prev_close else 0
+
+                valid_highs = [h for h in highs if h is not None]
+                valid_lows = [l for l in lows if l is not None]
+                valid_volumes = [v for v in volumes if v is not None]
+
+                result = {
+                    "symbol": symbol,
+                    "price": round(float(current_price), 2),
+                    "previousClose": round(float(prev_close), 2),
+                    "change": round(float(change), 2),
+                    "changePercent": round(float(change_pct), 2),
+                    "high": round(float(valid_highs[-1]), 2) if valid_highs else 0,
+                    "low": round(float(valid_lows[-1]), 2) if valid_lows else 0,
+                    "volume": int(valid_volumes[-1]) if valid_volumes else 0,
+                    "name": meta.get("shortName") or meta.get("symbol", symbol),
+                    "open": round(float(meta.get("regularMarketPrice", current_price)), 2),
+                }
+                logger.info(f"Stock data fetched via Yahoo Finance v8 API for {symbol}")
+                return result
+        logger.warning(f"Yahoo Finance v8 API returned {resp.status_code} for {symbol}")
+    except Exception as e:
+        logger.warning(f"Yahoo Finance v8 API failed for {symbol}: {e}")
+
+    # Fallback: yfinance library
     try:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="1mo")
+        hist = ticker.history(period="5d")
+
+        if hist.empty:
+            # Try 1mo if 5d returns nothing (e.g., new listings)
+            hist = ticker.history(period="1mo")
 
         if hist.empty:
             return None

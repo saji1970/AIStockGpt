@@ -128,6 +128,13 @@ class LLMProvider:
                 "Discuss diversification, risk management, asset allocation, "
                 "and portfolio optimization strategies."
             ),
+            "market_advice": (
+                "The user is asking for broad market or investment advice. "
+                "Provide helpful guidance on top stocks, ETFs, sectors, hedge funds, "
+                "mutual funds, index funds, diversification strategies, and asset allocation. "
+                "Include specific ticker symbols and ETFs when relevant. "
+                "Cover different risk levels and investment goals."
+            ),
             "market_news": (
                 "The user is asking about market news and trends. "
                 "Discuss current market conditions, sector performance, "
@@ -261,6 +268,19 @@ class LLMProvider:
                 "tracking multiple stocks, monitoring performance, and setting up alerts. "
                 "Use the portfolio endpoints to add stocks, view performance, and get "
                 "diversification recommendations."
+            ),
+            "market_advice": (
+                "Here are some popular investment options across different categories:\n\n"
+                "**Top Large-Cap Stocks:** AAPL, MSFT, NVDA, GOOGL, AMZN, META\n"
+                "**Dividend Stocks:** JNJ, KO, PEP, PG, VZ\n"
+                "**Index ETFs:** SPY (S&P 500), QQQ (Nasdaq-100), VTI (Total Market)\n"
+                "**Sector ETFs:** XLK (Tech), XLV (Healthcare), XLF (Financials)\n"
+                "**Hedge Fund Alternatives:** DBMF, BTAL, MNA\n"
+                "**Bond ETFs:** BND, AGG for lower risk\n\n"
+                "For beginners, diversified index funds like SPY or VTI are often recommended "
+                "as a starting point. For specific stock analysis with live prices, "
+                "ask me about any symbol!\n\n"
+                "Note: This is not financial advice. Always do your own research."
             ),
             "market_news": (
                 "I can provide insights on current market trends and conditions. "

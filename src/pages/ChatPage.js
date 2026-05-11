@@ -46,11 +46,16 @@ I'm your intelligent stock analysis assistant powered by advanced LSTM neural ne
 - Get detailed explanations
 - Request specific analyses
 
+**Market & Investment Advice**
+- Top stocks and ETFs by sector
+- Investment strategies for any budget
+- Hedge funds, mutual funds, and alternatives
+
 **Example Questions:**
 - "What's the prediction for AAPL stock?"
 - "Analyze the technical indicators for TSLA"
-- "Analyze my portfolio"
-- "What are the key features affecting stock prices?"
+- "What are the top 10 stocks to invest in?"
+- "If I have $500, what should I invest in?"
 
 Just type your question below and I'll provide you with intelligent insights!`,
         timestamp: new Date().toISOString()
@@ -112,16 +117,16 @@ Just type your question below and I'll provide you with intelligent insights!`,
   const quickPrompts = [
     "Predict AAPL stock price",
     "Analyze TSLA technical indicators",
-    "Show MSFT sensitivity analysis",
-    "Analyze my portfolio"
+    "What are the top 10 stocks to invest in?",
+    "If I have $500 to invest, what are the best options?"
   ];
 
   return (
-    <div className="flex-1 flex max-w-7xl mx-auto w-full">
+    <div className="flex-1 flex max-w-7xl mx-auto w-full min-h-0">
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
           <AnimatePresence>
             {messages.map((message) => (
               <motion.div
@@ -191,7 +196,7 @@ Just type your question below and I'll provide you with intelligent insights!`,
       </div>
 
       {/* Sidebar */}
-      <div className="w-80 bg-white border-l border-gray-200 p-6 hidden lg:block">
+      <div className="w-80 bg-white border-l border-gray-200 p-6 hidden lg:block overflow-y-auto">
         <div className="space-y-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Stock Dashboard</h3>

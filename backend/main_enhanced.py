@@ -489,7 +489,12 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             response_text = portfolio_response
         else:
             # No stock data - use LLM/template response
-            if llm_provider:
+            if intent == "market_advice":
+                if llm_provider:
+                    response_text = llm_provider.generate_response(intent, entities, message)
+                else:
+                    response_text = handle_market_advice(message)
+            elif llm_provider:
                 response_text = llm_provider.generate_response(intent, entities, message)
             else:
                 response_text = handle_general_question(message)
@@ -531,6 +536,109 @@ def handle_general_question(message: str) -> str:
             return response
     
     return "I'm here to help with stock analysis and predictions. What would you like to know?"
+
+
+def handle_market_advice(message: str) -> str:
+    """Handle broad market and investment advice queries."""
+    message_lower = message.lower()
+
+    # Top stocks / best stocks queries
+    if re.search(r"top\s*\d+\s*stocks?|best\s*stocks?", message_lower):
+        return (
+            "## Top Stocks to Watch\n\n"
+            "Here are some widely-followed stocks across key sectors:\n\n"
+            "**Technology:** AAPL (Apple), MSFT (Microsoft), NVDA (NVIDIA), GOOGL (Alphabet), META (Meta)\n\n"
+            "**Consumer:** AMZN (Amazon), TSLA (Tesla), WMT (Walmart), COST (Costco)\n\n"
+            "**Healthcare:** UNH (UnitedHealth), JNJ (Johnson & Johnson), ABBV (AbbVie)\n\n"
+            "**Finance:** JPM (JPMorgan), V (Visa), MA (Mastercard)\n\n"
+            "**ETFs for Diversification:** SPY (S&P 500), QQQ (Nasdaq-100), VTI (Total Market), VGT (Tech Sector)\n\n"
+            "To get live prices and analysis for any of these, ask me: *\"Predict AAPL stock\"* or *\"Technical analysis of NVDA\"*\n\n"
+            "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor before making investment decisions."
+        )
+
+    # Investment amount queries
+    if re.search(r"invest\s*\$?\d+|where.*(?:invest|put.*money)|what.*(?:should|would).*(?:invest|buy)", message_lower):
+        return (
+            "## Investment Strategy Guide\n\n"
+            "Here are common approaches based on different goals:\n\n"
+            "### For Beginners / Lower Risk\n"
+            "- **Index Funds / ETFs:** SPY (S&P 500), VTI (Total Market) - broad diversification with low fees\n"
+            "- **Bond ETFs:** BND (Total Bond) - lower volatility\n\n"
+            "### For Growth\n"
+            "- **Tech Leaders:** AAPL, MSFT, NVDA, GOOGL - established companies with growth potential\n"
+            "- **Growth ETFs:** QQQ (Nasdaq-100), VGT (Tech Sector)\n\n"
+            "### For Income / Dividends\n"
+            "- **Dividend Stocks:** JNJ, KO, PEP, PG - consistent dividend payers\n"
+            "- **Dividend ETFs:** VYM, SCHD - diversified dividend income\n\n"
+            "### Hedge Funds & Alternatives\n"
+            "- Most hedge funds require accredited investor status ($200K+ income or $1M+ net worth)\n"
+            "- **Accessible alternatives:** BTAL (anti-beta), DBMF (managed futures), QMOM (momentum)\n"
+            "- **REITs:** VNQ (real estate) - real estate exposure without direct ownership\n\n"
+            "### General Tips\n"
+            "- Diversify across sectors and asset classes\n"
+            "- Consider your risk tolerance and time horizon\n"
+            "- Dollar-cost averaging reduces timing risk\n\n"
+            "Ask me about any specific stock for live prices and AI predictions!\n\n"
+            "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor."
+        )
+
+    # Hedge fund queries
+    if re.search(r"hedge\s*fund|mutual\s*fund", message_lower):
+        return (
+            "## Hedge Funds & Mutual Funds\n\n"
+            "### Hedge Funds\n"
+            "- Typically require accredited investor status and high minimums ($100K-$1M+)\n"
+            "- Use strategies like long/short equity, global macro, and event-driven\n"
+            "- **Accessible alternatives via ETFs:**\n"
+            "  - DBMF - managed futures strategy\n"
+            "  - BTAL - anti-beta / market neutral\n"
+            "  - QMOM - quantitative momentum\n"
+            "  - MNA - merger arbitrage\n\n"
+            "### Mutual Funds (More Accessible)\n"
+            "- **Vanguard 500 (VFIAX):** Tracks S&P 500, 0.04% expense ratio\n"
+            "- **Fidelity Total Market (FSKAX):** Broad US market exposure\n"
+            "- **Schwab International (SWISX):** International diversification\n\n"
+            "### ETF Alternatives (No Minimums)\n"
+            "- **SPY / VOO:** S&P 500 ETFs\n"
+            "- **QQQ:** Nasdaq-100\n"
+            "- **VTI:** Total US stock market\n"
+            "- **VXUS:** International stocks\n\n"
+            "Ask me about any specific stock or ETF for live prices and analysis!\n\n"
+            "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor."
+        )
+
+    # Sector / market trend queries
+    if re.search(r"sector|market.*(?:trend|outlook)|(?:current|today).*market|s.?p\s*500|nasdaq|dow", message_lower):
+        return (
+            "## Market Overview & Sector Insights\n\n"
+            "### Major Indices to Track\n"
+            "- **S&P 500 (SPY):** Broad market benchmark - 500 large-cap US companies\n"
+            "- **Nasdaq-100 (QQQ):** Tech-heavy index\n"
+            "- **Dow Jones (DIA):** 30 blue-chip industrial companies\n"
+            "- **Russell 2000 (IWM):** Small-cap stocks\n\n"
+            "### Key Sectors & Representative ETFs\n"
+            "- **Technology (XLK):** AAPL, MSFT, NVDA\n"
+            "- **Healthcare (XLV):** UNH, JNJ, PFE\n"
+            "- **Financials (XLF):** JPM, BAC, GS\n"
+            "- **Energy (XLE):** XOM, CVX\n"
+            "- **Consumer Discretionary (XLY):** AMZN, TSLA\n\n"
+            "For live prices on any of these, ask me: *\"Predict SPY\"* or *\"Technical analysis of QQQ\"*\n\n"
+            "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor."
+        )
+
+    # Default market advice response
+    return (
+        "## Market & Investment Insights\n\n"
+        "I can help you with:\n\n"
+        "- **Top stocks by sector** - Ask: *\"What are the top 10 stocks?\"*\n"
+        "- **Investment strategies** - Ask: *\"If I have $500 to invest, what should I buy?\"*\n"
+        "- **Hedge funds & ETFs** - Ask: *\"Tell me about hedge fund alternatives\"*\n"
+        "- **Sector analysis** - Ask: *\"Which sectors are performing best?\"*\n"
+        "- **Specific stock analysis** - Ask: *\"Predict AAPL stock\"* or *\"Technical analysis of TSLA\"*\n\n"
+        "For the most detailed analysis, ask about a specific stock symbol and I'll fetch live data with AI predictions.\n\n"
+        "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor."
+    )
+
 
 # API Endpoints
 

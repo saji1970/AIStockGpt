@@ -41,7 +41,8 @@ class XGBoostPredictor:
         X = X[valid_mask]
         y = y[valid_mask]
 
-        train_window = 252
+        # Adaptive train window: use 60% of data, min 63 days
+        train_window = max(63, int(len(X) * 0.6))
         test_window = 21
 
         all_preds = []

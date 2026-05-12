@@ -406,53 +406,52 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
         # Process message with NLP (returns tuple: intent, entities, confidence)
         intent, entities, confidence = nlp_processor.process_message(message)
 
-        # Fetch real stock data if a symbol was detected
+        # Fetch real stock data if a symbol was detected (for ALL intents)
         stock_data = None
         symbol = entities.get("symbol")
-        if symbol and intent in ("stock_prediction", "technical_analysis", "sensitivity_analysis", "market_news"):
+        if symbol:
             stock_data = fetch_stock_data(symbol)
 
-        # ---- ML Engine Integration ---- #
+        # ---- ML Engine Integration (runs for ALL queries) ---- #
         ml_results = {}
 
-        # XGBoost prediction for stock_prediction intent
-        if intent == "stock_prediction" and symbol and feature_pipeline and xgboost_predictor:
+        # XGBoost prediction for ANY query with a symbol
+        if symbol and feature_pipeline and xgboost_predictor:
             try:
                 features = feature_pipeline.build_features(symbol)
                 ml_results['prediction'] = xgboost_predictor.predict(symbol, features)
             except Exception as e:
                 logger.warning(f"XGBoost prediction failed for {symbol}: {e}")
 
-        # Technical analysis via feature pipeline
-        if intent == "technical_analysis" and symbol and feature_pipeline:
+        # Technical indicators for ANY query with a symbol
+        if symbol and feature_pipeline:
             try:
                 ml_results['indicators'] = feature_pipeline.compute_indicators(symbol)
             except Exception as e:
                 logger.warning(f"Feature pipeline indicators failed for {symbol}: {e}")
 
-        # Portfolio optimizer + Monte Carlo for market_advice with amount
-        if intent == "market_advice" and portfolio_optimizer:
-            amount = entities.get('amount')
-            risk = entities.get('risk_level', 'moderate')
-            horizon = entities.get('horizon_months', 12)
-            if amount:
-                try:
-                    ml_results['allocation'] = portfolio_optimizer.recommend_allocation(amount, risk, horizon)
-                    # Run Monte Carlo on the recommended allocation
-                    alloc = ml_results['allocation']
-                    symbols = list(alloc['allocations'].keys())
-                    weights = [alloc['allocations'][s]['weight'] for s in symbols]
-                    if monte_carlo_sim and symbols and weights:
-                        ml_results['forecast'] = monte_carlo_sim.simulate(symbols, weights, amount, horizon)
-                except Exception as e:
-                    logger.warning(f"Portfolio optimization failed: {e}")
-
-        # Sentiment analysis for market_news intent
-        if intent == "market_news" and symbol and sentiment_analyzer:
+        # Sentiment analysis for ANY query with a symbol
+        if symbol and sentiment_analyzer:
             try:
                 ml_results['sentiment'] = sentiment_analyzer.analyze_symbol(symbol)
             except Exception as e:
                 logger.warning(f"Sentiment analysis failed for {symbol}: {e}")
+
+        # Portfolio optimizer + Monte Carlo for market_advice (with or without amount)
+        if intent == "market_advice" and portfolio_optimizer:
+            amount = entities.get('amount', 10000)  # default $10K if no amount specified
+            risk = entities.get('risk_level', 'moderate')
+            horizon = entities.get('horizon_months', 12)
+            try:
+                ml_results['allocation'] = portfolio_optimizer.recommend_allocation(amount, risk, horizon)
+                # Run Monte Carlo on the recommended allocation
+                alloc = ml_results['allocation']
+                symbols_alloc = list(alloc['allocations'].keys())
+                weights_alloc = [alloc['allocations'][s]['weight'] for s in symbols_alloc]
+                if monte_carlo_sim and symbols_alloc and weights_alloc:
+                    ml_results['forecast'] = monte_carlo_sim.simulate(symbols_alloc, weights_alloc, amount, horizon)
+            except Exception as e:
+                logger.warning(f"Portfolio optimization failed: {e}")
 
         # Risk analysis for portfolio_management with user holdings
         if intent == "portfolio_management" and user_id and portfolio_optimizer and ENHANCED_MODULES_AVAILABLE:

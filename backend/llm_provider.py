@@ -100,10 +100,13 @@ class LLMProvider:
         analysis_type = entities.get("analysis_type", "")
 
         system_context = (
-            "You are AI Stock GPT, an intelligent stock market analysis assistant. "
+            "You are AI Stock GPT, an intelligent stock market analysis assistant "
+            "powered by XGBoost ML models, Monte Carlo simulations, and FinBERT sentiment analysis. "
             "You provide helpful, accurate, and concise financial analysis. "
+            "When ML model results are provided, always reference the key numbers "
+            "(direction, probability, confidence, indicators) in your response. "
             "Always include a disclaimer that this is not financial advice. "
-            "Keep responses under 200 words."
+            "Keep responses under 300 words."
         )
 
         intent_context = {
@@ -371,6 +374,24 @@ class LLMProvider:
             lines.append(f"Confidence: {sent.get('confidence', 0):.0%}")
             lines.append(f"Trend: {sent.get('trend', 'stable')}")
             lines.append(f"Headlines analyzed: {sent.get('headline_count', 0)}")
+
+        if ml_results.get('indicators'):
+            ind = ml_results['indicators']
+            sym = ind.get('symbol', '')
+            lines.append(f"\n**{sym} Technical Indicators**\n")
+            rsi = ind.get('rsi_14', 0)
+            rsi_sig = ind.get('rsi_signal', 'neutral')
+            lines.append(f"- RSI (14): **{rsi:.1f}** ({rsi_sig})")
+            lines.append(f"- MACD: {ind.get('macd', 0):.2f} | Signal: {ind.get('macd_signal', 0):.2f} ({ind.get('macd_signal_direction', 'neutral')})")
+            lines.append(f"- Bollinger Bands: {ind.get('bb_signal', 'within bands')}")
+            lines.append(f"- SMA 20: ${ind.get('sma_20', 0):.2f} | SMA 50: ${ind.get('sma_50', 0):.2f}")
+            lines.append(f"- ATR (14): {ind.get('atr_14', 0):.2f}")
+            lines.append(f"- Stochastic: K={ind.get('stoch_k', 0):.1f} D={ind.get('stoch_d', 0):.1f}")
+            lines.append(f"- ADX: {ind.get('adx_14', 0):.1f}")
+            hist_vol = ind.get('hist_vol_20', 0)
+            lines.append(f"- Volatility (20d): {hist_vol:.1%}")
+            sharpe = ind.get('rolling_sharpe_21', 0)
+            lines.append(f"- Rolling Sharpe (21d): {sharpe:.2f}")
 
         if ml_results.get('risk'):
             risk = ml_results['risk']

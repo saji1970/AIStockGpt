@@ -62,6 +62,12 @@ class FeaturePipeline:
         # Macro indicators
         df = self._add_macro_features(df)
 
+        # Drop columns that are entirely NaN (e.g. macro data when DB unavailable)
+        all_nan_cols = [c for c in df.columns if df[c].isna().all()]
+        if all_nan_cols:
+            df = df.drop(columns=all_nan_cols)
+            logger.info(f"Dropped {len(all_nan_cols)} all-NaN columns: {all_nan_cols}")
+
         # Drop NaN rows
         df = df.dropna()
 

@@ -138,6 +138,13 @@ nlp_processor = None
 models_cache = {}
 data_collectors = {}
 
+# ML Engine instances
+feature_pipeline = None
+xgboost_predictor = None
+monte_carlo_sim = None
+portfolio_optimizer = None
+sentiment_analyzer = None
+
 # Pydantic models
 class ChatRequest(BaseModel):
     message: str = Field(..., description="User message")
@@ -168,6 +175,23 @@ class EmailAlert(BaseModel):
     alert_type: str = Field(..., description="Alert type (price, technical, prediction)")
     threshold: float = Field(..., description="Alert threshold")
     email: str = Field(..., description="Email address")
+
+class PortfolioRecommendRequest(BaseModel):
+    amount: float = Field(..., description="Investment amount in USD")
+    risk_level: str = Field('moderate', description="conservative, moderate, or aggressive")
+    horizon_months: int = Field(12, description="Investment horizon in months")
+    goals: Optional[str] = Field(None, description="Investment goals")
+
+class RiskAnalysisRequest(BaseModel):
+    portfolio_id: Optional[str] = Field(None, description="Existing portfolio ID")
+    symbols: Optional[List[str]] = Field(None, description="Stock symbols")
+    weights: Optional[List[float]] = Field(None, description="Portfolio weights")
+
+class ForecastRequest(BaseModel):
+    symbols: List[str] = Field(..., description="Stock symbols")
+    weights: List[float] = Field(..., description="Portfolio weights (must sum to 1)")
+    amount: float = Field(..., description="Initial investment amount")
+    months: int = Field(12, description="Forecast horizon in months")
 
 def initialize_nlp():
     """Initialize the NLP processor (enhanced or basic)."""
@@ -356,7 +380,7 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
 
 
 def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, Any]:
-    """Generate AI response to user message using NLP + LLM + live stock data."""
+    """Generate AI response to user message using NLP + ML Engine + LLM + live stock data."""
     try:
         if nlp_processor is None:
             initialize_nlp()
@@ -385,10 +409,67 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
         # Fetch real stock data if a symbol was detected
         stock_data = None
         symbol = entities.get("symbol")
-        if symbol and intent in ("stock_prediction", "technical_analysis", "sensitivity_analysis"):
+        if symbol and intent in ("stock_prediction", "technical_analysis", "sensitivity_analysis", "market_news"):
             stock_data = fetch_stock_data(symbol)
 
-        # Handle portfolio_management intent
+        # ---- ML Engine Integration ---- #
+        ml_results = {}
+
+        # XGBoost prediction for stock_prediction intent
+        if intent == "stock_prediction" and symbol and feature_pipeline and xgboost_predictor:
+            try:
+                features = feature_pipeline.build_features(symbol)
+                ml_results['prediction'] = xgboost_predictor.predict(symbol, features)
+            except Exception as e:
+                logger.warning(f"XGBoost prediction failed for {symbol}: {e}")
+
+        # Technical analysis via feature pipeline
+        if intent == "technical_analysis" and symbol and feature_pipeline:
+            try:
+                ml_results['indicators'] = feature_pipeline.compute_indicators(symbol)
+            except Exception as e:
+                logger.warning(f"Feature pipeline indicators failed for {symbol}: {e}")
+
+        # Portfolio optimizer + Monte Carlo for market_advice with amount
+        if intent == "market_advice" and portfolio_optimizer:
+            amount = entities.get('amount')
+            risk = entities.get('risk_level', 'moderate')
+            horizon = entities.get('horizon_months', 12)
+            if amount:
+                try:
+                    ml_results['allocation'] = portfolio_optimizer.recommend_allocation(amount, risk, horizon)
+                    # Run Monte Carlo on the recommended allocation
+                    alloc = ml_results['allocation']
+                    symbols = list(alloc['allocations'].keys())
+                    weights = [alloc['allocations'][s]['weight'] for s in symbols]
+                    if monte_carlo_sim and symbols and weights:
+                        ml_results['forecast'] = monte_carlo_sim.simulate(symbols, weights, amount, horizon)
+                except Exception as e:
+                    logger.warning(f"Portfolio optimization failed: {e}")
+
+        # Sentiment analysis for market_news intent
+        if intent == "market_news" and symbol and sentiment_analyzer:
+            try:
+                ml_results['sentiment'] = sentiment_analyzer.analyze_symbol(symbol)
+            except Exception as e:
+                logger.warning(f"Sentiment analysis failed for {symbol}: {e}")
+
+        # Risk analysis for portfolio_management with user holdings
+        if intent == "portfolio_management" and user_id and portfolio_optimizer and ENHANCED_MODULES_AVAILABLE:
+            try:
+                portfolios = db_manager.get_user_portfolios(user_id)
+                if portfolios and portfolios[0].get('stocks'):
+                    stocks = portfolios[0]['stocks']
+                    syms = [s['symbol'] for s in stocks]
+                    vals = [s['shares'] * s['purchase_price'] for s in stocks]
+                    total = sum(vals)
+                    wts = [v / total for v in vals] if total > 0 else []
+                    if syms and wts:
+                        ml_results['risk'] = portfolio_optimizer.risk_analysis(syms, wts)
+            except Exception as e:
+                logger.warning(f"Portfolio risk analysis failed: {e}")
+
+        # ---- Handle portfolio_management display ---- #
         portfolio_response = None
         if intent == "portfolio_management" and user_id and ENHANCED_MODULES_AVAILABLE:
             try:
@@ -449,8 +530,30 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             except Exception as e:
                 logger.warning(f"Failed to fetch portfolio for chat: {e}")
 
-        # Build response text with real data
-        if stock_data:
+        # ---- Build response text ---- #
+        if ml_results:
+            # ML results available - use LLM or formatted template
+            if llm_provider:
+                response_text = llm_provider.generate_response(intent, entities, message, ml_results=ml_results)
+            else:
+                response_text = llm_provider._format_ml_results(ml_results) if llm_provider else ""
+                if not response_text:
+                    response_text = json.dumps(ml_results, indent=2, default=str)
+
+            # Prepend stock data summary if available
+            if stock_data:
+                price = stock_data["price"]
+                change = stock_data["change"]
+                change_pct = stock_data["changePercent"]
+                direction = "up" if change >= 0 else "down"
+                sign = "+" if change >= 0 else ""
+                name = stock_data.get("name", symbol)
+                stock_summary = (
+                    f"{name} ({symbol}) is currently trading at ${price:.2f}, "
+                    f"{direction} {sign}{change:.2f} ({sign}{change_pct:.2f}%).\n\n"
+                )
+                response_text = stock_summary + response_text
+        elif stock_data:
             price = stock_data["price"]
             change = stock_data["change"]
             change_pct = stock_data["changePercent"]
@@ -487,8 +590,18 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             response_text += "\nNote: This is not financial advice. Always do your own research before making investment decisions."
         elif portfolio_response:
             response_text = portfolio_response
+            # Append risk analysis if available
+            if ml_results.get('risk'):
+                risk = ml_results['risk']
+                response_text += (
+                    f"\n\n**Portfolio Risk Metrics**\n"
+                    f"- Sharpe Ratio: {risk.get('sharpe_ratio', 0):.2f}\n"
+                    f"- Annual Volatility: {risk.get('annual_volatility', 0):.1%}\n"
+                    f"- Max Drawdown: {risk.get('max_drawdown', 0):.1%}\n"
+                    f"- Beta: {risk.get('beta', 0):.2f}"
+                )
         else:
-            # No stock data - use LLM/template response
+            # No stock data and no ML results - use LLM/template response
             if intent == "market_advice":
                 if llm_provider:
                     response_text = llm_provider.generate_response(intent, entities, message)
@@ -1052,6 +1165,190 @@ if ENHANCED_MODULES_AVAILABLE:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    # ML-powered endpoints
+    @app.post("/portfolio/recommend")
+    @rate_limit_authenticated
+    async def portfolio_recommend(
+        request: PortfolioRecommendRequest,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """AI-optimized portfolio allocation recommendation."""
+        try:
+            if not portfolio_optimizer:
+                raise HTTPException(status_code=503, detail="Portfolio optimizer not available")
+
+            result = portfolio_optimizer.recommend_allocation(
+                request.amount, request.risk_level, request.horizon_months
+            )
+
+            # Run Monte Carlo forecast
+            forecast = None
+            if monte_carlo_sim and result.get('allocations'):
+                symbols = list(result['allocations'].keys())
+                weights = [result['allocations'][s]['weight'] for s in symbols]
+                try:
+                    forecast = monte_carlo_sim.simulate(
+                        symbols, weights, request.amount, request.horizon_months
+                    )
+                except Exception as e:
+                    logger.warning(f"Monte Carlo forecast failed: {e}")
+
+            return {
+                "allocations": result.get('allocations', {}),
+                "expected_return_range": result.get('expected_return_range', {}),
+                "risk_metrics": result.get('risk_metrics', {}),
+                "forecast": forecast,
+                "method": result.get('method', ''),
+                "risk_level": result.get('risk_level', ''),
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Portfolio recommend error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/market-summary")
+    @rate_limit_authenticated
+    async def market_summary(current_user: Dict = Depends(get_current_active_user)):
+        """Market regime, sector analysis, macro indicators."""
+        try:
+            # Fetch major indices
+            indices = {}
+            for sym in ['SPY', 'QQQ', 'DIA']:
+                data = fetch_stock_data(sym)
+                if data:
+                    indices[sym] = data
+
+            # Fetch macro indicators from DB
+            macro_data = {}
+            try:
+                from datetime import date
+                end = date.today()
+                start = date(end.year - 1, end.month, end.day)
+                indicators = db_manager.get_macro_indicators(
+                    ['DFF', 'CPIAUCSL', 'UNRATE', 'T10Y2Y'], start, end
+                )
+                # Get latest value for each indicator
+                for ind in indicators:
+                    name = ind['indicator_name']
+                    if name not in macro_data or ind['date'] > macro_data[name]['date']:
+                        macro_data[name] = {'value': ind['value'], 'date': str(ind['date'])}
+            except Exception as e:
+                logger.warning(f"Failed to fetch macro data: {e}")
+
+            # Sector sentiment (if sentiment analyzer available)
+            sector_sentiment = {}
+            if sentiment_analyzer:
+                for sector_sym in ['XLK', 'XLV', 'XLF', 'XLE', 'XLY']:
+                    try:
+                        sent = sentiment_analyzer.analyze_symbol(sector_sym, days=3)
+                        sector_sentiment[sector_sym] = {
+                            'sentiment': sent.get('overall_sentiment', 0),
+                            'label': sent.get('overall_label', 'neutral'),
+                        }
+                    except Exception:
+                        pass
+
+            # Determine regime
+            spy_data = indices.get('SPY', {})
+            regime = 'neutral'
+            if spy_data:
+                change_pct = spy_data.get('changePercent', 0)
+                if change_pct > 1:
+                    regime = 'bullish'
+                elif change_pct < -1:
+                    regime = 'bearish'
+
+            return {
+                "indices": indices,
+                "macro_indicators": macro_data,
+                "sector_sentiment": sector_sentiment,
+                "regime": regime,
+            }
+        except Exception as e:
+            logger.error(f"Market summary error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/risk-analysis")
+    @rate_limit_authenticated
+    async def risk_analysis(
+        request: RiskAnalysisRequest,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """Portfolio risk analysis."""
+        try:
+            if not portfolio_optimizer:
+                raise HTTPException(status_code=503, detail="Portfolio optimizer not available")
+
+            symbols = request.symbols
+            weights = request.weights
+
+            # If portfolio_id provided, load from DB
+            if request.portfolio_id:
+                portfolio = db_manager.get_portfolio(request.portfolio_id)
+                if not portfolio or portfolio.get('user_id') != current_user['id']:
+                    raise HTTPException(status_code=404, detail="Portfolio not found")
+
+                stocks = portfolio.get('stocks', [])
+                if not stocks:
+                    raise HTTPException(status_code=400, detail="Portfolio has no stocks")
+
+                symbols = [s['symbol'] for s in stocks]
+                vals = [s['shares'] * s['purchase_price'] for s in stocks]
+                total = sum(vals)
+                weights = [v / total for v in vals] if total > 0 else []
+
+            if not symbols or not weights:
+                raise HTTPException(status_code=400, detail="Symbols and weights are required")
+
+            result = portfolio_optimizer.risk_analysis(symbols, weights)
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Risk analysis error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/sentiment/{symbol}")
+    @rate_limit_authenticated
+    async def get_sentiment(
+        symbol: str,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """NLP sentiment analysis for a stock."""
+        try:
+            if not sentiment_analyzer:
+                raise HTTPException(status_code=503, detail="Sentiment analyzer not available")
+
+            result = sentiment_analyzer.analyze_symbol(symbol.upper())
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Sentiment error for {symbol}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/forecast")
+    @rate_limit_authenticated
+    async def forecast(
+        request: ForecastRequest,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """Monte Carlo portfolio forecast."""
+        try:
+            if not monte_carlo_sim:
+                raise HTTPException(status_code=503, detail="Monte Carlo simulator not available")
+
+            result = monte_carlo_sim.simulate(
+                request.symbols, request.weights, request.amount, request.months
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Forecast error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     # Email Alerts Endpoints
     @app.post("/alerts/create")
     @rate_limit_authenticated
@@ -1133,6 +1430,9 @@ if not ENHANCED_MODULES_AVAILABLE:
 @app.on_event("startup")
 async def startup_event():
     """Initialize the application on startup."""
+    global feature_pipeline, xgboost_predictor, monte_carlo_sim
+    global portfolio_optimizer, sentiment_analyzer
+
     logger.info("Starting AI Stock GPT Enhanced API v2.0")
 
     # Create database tables if they don't exist
@@ -1153,6 +1453,39 @@ async def startup_event():
         logger.info("Application initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize application: {e}")
+
+    # Initialize ML Engine
+    try:
+        from backend.ml.feature_pipeline import FeaturePipeline
+        from backend.ml.xgboost_model import XGBoostPredictor
+        from backend.ml.monte_carlo import MonteCarloSimulator
+        from backend.ml.portfolio_optimizer import PortfolioOptimizer
+        from backend.ml.sentiment import SentimentAnalyzer
+
+        _db = db_manager if ENHANCED_MODULES_AVAILABLE else None
+        feature_pipeline = FeaturePipeline(db_manager=_db)
+        xgboost_predictor = XGBoostPredictor()
+        monte_carlo_sim = MonteCarloSimulator()
+        portfolio_optimizer = PortfolioOptimizer()
+        sentiment_analyzer = SentimentAnalyzer()
+        if _db:
+            sentiment_analyzer.set_db_manager(_db)
+        logger.info("ML Engine initialized: XGBoost, Monte Carlo, PyPortfolioOpt, FinBERT")
+    except Exception as e:
+        logger.warning(f"ML Engine init failed (will use fallbacks): {e}")
+
+    # Initialize Data Scheduler
+    try:
+        from backend.data.scheduler import DataScheduler
+        from backend.data.fred_collector import FREDCollector
+
+        _db = db_manager if ENHANCED_MODULES_AVAILABLE else None
+        fred_collector = FREDCollector()
+        data_scheduler = DataScheduler(_db, fred_collector, sentiment_analyzer)
+        data_scheduler.start()
+        logger.info("Data scheduler started")
+    except Exception as e:
+        logger.warning(f"Data scheduler failed to start: {e}")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))

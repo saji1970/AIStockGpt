@@ -115,3 +115,52 @@ class EmailAlert(Base):
     triggered_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="email_alerts")
+
+
+class MarketData(Base):
+    __tablename__ = 'market_data'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    symbol = Column(String(10), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    open = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    close = Column(Float)
+    volume = Column(Float)
+    adjusted_close = Column(Float)
+    source = Column(String(20), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('symbol', 'date', 'source', name='uq_market_data_symbol_date_source'),
+    )
+
+
+class SentimentScore(Base):
+    __tablename__ = 'sentiment_scores'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    symbol = Column(String(10), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    sentiment_score = Column(Float, nullable=False)
+    sentiment_label = Column(String(10), nullable=False)
+    confidence = Column(Float, nullable=False)
+    source = Column(String(50))
+    headline = Column(Text)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class MacroIndicator(Base):
+    __tablename__ = 'macro_indicators'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    indicator_name = Column(String(50), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    value = Column(Float, nullable=False)
+    source = Column(String(20), nullable=False, default='fred')
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('indicator_name', 'date', name='uq_macro_indicator_date'),
+    )

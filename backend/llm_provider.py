@@ -58,7 +58,8 @@ class LLMProvider:
             logger.info("HuggingFace Inference API available (no token, free tier)")
 
     def generate_response(
-        self, intent: str, entities: Dict[str, Any], user_message: str
+        self, intent: str, entities: Dict[str, Any], user_message: str,
+        ml_results: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Generate a response using the best available LLM provider.
@@ -67,11 +68,12 @@ class LLMProvider:
             intent: Detected intent (e.g., 'stock_prediction', 'technical_analysis')
             entities: Extracted entities (e.g., {'symbol': 'AAPL'})
             user_message: Original user message
+            ml_results: Optional ML model results to include in prompt context
 
         Returns:
             Generated response string
         """
-        prompt = self._build_prompt(intent, entities, user_message)
+        prompt = self._build_prompt(intent, entities, user_message, ml_results)
 
         # Try Ollama first
         if self.ollama_available:
@@ -86,10 +88,11 @@ class LLMProvider:
                 return response
 
         # Fall back to templates
-        return self._template_response(intent, entities, user_message)
+        return self._template_response(intent, entities, user_message, ml_results)
 
     def _build_prompt(
-        self, intent: str, entities: Dict[str, Any], user_message: str
+        self, intent: str, entities: Dict[str, Any], user_message: str,
+        ml_results: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Build a context-aware prompt for the LLM."""
         symbol = entities.get("symbol", "")
@@ -150,12 +153,18 @@ class LLMProvider:
 
         context = intent_context.get(intent, intent_context["general_question"])
 
-        return (
+        prompt = (
             f"System: {system_context}\n\n"
             f"Context: {context}\n\n"
-            f"User: {user_message}\n\n"
-            f"Assistant:"
         )
+
+        if ml_results:
+            prompt += "\n\n## ML Model Results (use these to inform your response):\n"
+            prompt += json.dumps(ml_results, indent=2, default=str)
+            prompt += "\n\nExplain these results in clear, natural language. Include the key numbers."
+
+        prompt += f"\n\nUser: {user_message}\n\nAssistant:"
+        return prompt
 
     def _call_ollama(self, prompt: str) -> Optional[str]:
         """Call Ollama REST API for text generation."""
@@ -234,9 +243,16 @@ class LLMProvider:
         return None
 
     def _template_response(
-        self, intent: str, entities: Dict[str, Any], user_message: str
+        self, intent: str, entities: Dict[str, Any], user_message: str,
+        ml_results: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate a template-based response as final fallback."""
+        # Format ML results if available
+        if ml_results:
+            formatted = self._format_ml_results(ml_results)
+            if formatted:
+                return formatted
+
         symbol = entities.get("symbol", "the stock")
 
         templates = {
@@ -302,6 +318,74 @@ class LLMProvider:
         response = templates.get(intent, templates["general_question"])
         logger.info("Response generated via template fallback")
         return response
+
+
+    def _format_ml_results(self, ml_results: Dict[str, Any]) -> Optional[str]:
+        """Format ML results into readable text when LLM is unavailable."""
+        lines = []
+
+        if ml_results.get('prediction'):
+            pred = ml_results['prediction']
+            lines.append(f"**{pred.get('symbol', '')} Analysis (XGBoost ML Model)**\n")
+            lines.append(f"Direction: **{pred.get('direction', 'N/A')}**")
+            prob = pred.get('probability', 0)
+            lines.append(f"Probability of positive return: **{prob:.0%}**")
+            conf = pred.get('confidence', 0)
+            lines.append(f"Confidence: **{conf:.0%}**")
+            exp_ret = pred.get('expected_return', 0)
+            lines.append(f"Expected 21-day return: **{exp_ret:.1%}**")
+            importance = pred.get('feature_importance', {})
+            if importance:
+                top = list(importance.keys())[:5]
+                lines.append(f"\nTop factors: {', '.join(top)}")
+            lines.append("\n*21-day horizon. Not financial advice.*")
+
+        if ml_results.get('allocation'):
+            alloc = ml_results['allocation']
+            risk = alloc.get('risk_level', 'moderate')
+            lines.append(f"\n**Recommended Allocation ({risk})**\n")
+            for sym, info in alloc.get('allocations', {}).items():
+                w = info.get('weight', 0)
+                amt = info.get('amount', 0)
+                lines.append(f"- **{sym}**: {w:.0%} (${amt:,.0f})")
+
+            ret_range = alloc.get('expected_return_range', {})
+            if ret_range:
+                lines.append(f"\nExpected annual return: {ret_range.get('low', 0):.1%} to {ret_range.get('high', 0):.1%}")
+
+        if ml_results.get('forecast'):
+            fc = ml_results['forecast']
+            lines.append(f"\n**Monte Carlo Forecast ({fc.get('months', 12)}mo, 10K simulations)**\n")
+            lines.append(f"- Median outcome: **${fc.get('median_value', 0):,.0f}**")
+            lines.append(f"- {fc.get('probability_positive', 0):.0%} chance of positive return")
+            lines.append(f"- Best case (95th): ${fc.get('best_case', 0):,.0f}")
+            lines.append(f"- Worst case (5th): ${fc.get('worst_case', 0):,.0f}")
+            var95 = fc.get('var_95', 0)
+            if var95:
+                lines.append(f"- Value at Risk (95%): ${var95:,.0f}")
+
+        if ml_results.get('sentiment'):
+            sent = ml_results['sentiment']
+            lines.append(f"\n**{sent.get('symbol', '')} Sentiment Analysis (FinBERT)**\n")
+            lines.append(f"Overall sentiment: **{sent.get('overall_label', 'neutral')}** ({sent.get('overall_sentiment', 0):.2f})")
+            lines.append(f"Confidence: {sent.get('confidence', 0):.0%}")
+            lines.append(f"Trend: {sent.get('trend', 'stable')}")
+            lines.append(f"Headlines analyzed: {sent.get('headline_count', 0)}")
+
+        if ml_results.get('risk'):
+            risk = ml_results['risk']
+            lines.append("\n**Portfolio Risk Analysis**\n")
+            lines.append(f"- Sharpe Ratio: {risk.get('sharpe_ratio', 0):.2f}")
+            lines.append(f"- Annual Volatility: {risk.get('annual_volatility', 0):.1%}")
+            lines.append(f"- Max Drawdown: {risk.get('max_drawdown', 0):.1%}")
+            lines.append(f"- Value at Risk (95%): {risk.get('var_95', 0):.2%} daily")
+            lines.append(f"- Beta: {risk.get('beta', 0):.2f}")
+
+        if not lines:
+            return None
+
+        lines.append("\n\n*Not financial advice.*")
+        return '\n'.join(lines)
 
 
 # Global instance

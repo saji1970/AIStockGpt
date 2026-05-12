@@ -138,4 +138,30 @@ export const deleteStockFromPortfolio = async (portfolioId, symbol) => {
   return response.data;
 };
 
+// ML-powered endpoints
+export const getMarketSummary = async () => {
+  const response = await api.get('/market-summary');
+  return response.data;
+};
+
+export const getPortfolioRecommendation = async (data) => {
+  const response = await api.post('/portfolio/recommend', data);
+  return response.data;
+};
+
+export const getRiskAnalysis = async (data) => {
+  const response = await api.post('/risk-analysis', data);
+  return response.data;
+};
+
+export const getSentiment = async (symbol) => {
+  const response = await api.get(`/sentiment/${symbol}`);
+  return response.data;
+};
+
+export const getForecast = async (data) => {
+  const response = await api.post('/forecast', data);
+  return response.data;
+};
+
 export default api;

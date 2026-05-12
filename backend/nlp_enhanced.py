@@ -317,6 +317,21 @@ class EnhancedNLPProcessor:
         if analysis_types:
             entities["analysis_type"] = analysis_types[0]
 
+        # Extract dollar amount
+        amount = self._extract_dollar_amount(normalized)
+        if amount is not None:
+            entities["amount"] = amount
+
+        # Extract risk level
+        risk_level = self._extract_risk_level(normalized)
+        if risk_level is not None:
+            entities["risk_level"] = risk_level
+
+        # Extract investment horizon
+        horizon = self._extract_horizon(normalized)
+        if horizon is not None:
+            entities["horizon_months"] = horizon
+
         return entities
 
     def _extract_stock_symbols(self, normalized: str, original: str) -> List[str]:
@@ -365,6 +380,61 @@ class EnhancedNLPProcessor:
         """Extract analysis types from the message."""
         keywords = ["technical", "fundamental", "sensitivity", "prediction", "forecast", "trend"]
         return [k for k in keywords if k in message]
+
+    def _extract_dollar_amount(self, message: str) -> Optional[float]:
+        """Extract dollar amounts: '$500', '500 dollars', '500 usd', 'invest 500'."""
+        patterns = [
+            r'\$\s*([\d,]+(?:\.\d{1,2})?)',
+            r'([\d,]+(?:\.\d{1,2})?)\s*(?:dollars?|usd|bucks)',
+            r'invest\s*\$?\s*([\d,]+(?:\.\d{1,2})?)',
+            r'have\s*\$?\s*([\d,]+(?:\.\d{1,2})?)',
+            r'put\s*\$?\s*([\d,]+(?:\.\d{1,2})?)',
+            r'([\d,]+(?:\.\d{1,2})?)\s*(?:to invest|to put)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                try:
+                    return float(match.group(1).replace(',', ''))
+                except ValueError:
+                    continue
+        return None
+
+    def _extract_risk_level(self, message: str) -> Optional[str]:
+        """Extract risk level from message."""
+        risk_map = {
+            'conservative': ['conservative', 'safe', 'low risk', 'low-risk', 'minimal risk', 'cautious'],
+            'moderate': ['moderate', 'balanced', 'medium risk', 'medium-risk', 'average risk'],
+            'aggressive': ['aggressive', 'high risk', 'high-risk', 'growth', 'risky', 'maximum growth'],
+        }
+        for level, keywords in risk_map.items():
+            for kw in keywords:
+                if kw in message:
+                    return level
+        return None
+
+    def _extract_horizon(self, message: str) -> Optional[int]:
+        """Extract investment horizon in months."""
+        patterns = [
+            (r'(\d+)\s*years?', lambda m: int(m) * 12),
+            (r'(\d+)\s*months?', lambda m: int(m)),
+            (r'(\d+)\s*weeks?', lambda m: max(1, int(m) // 4)),
+        ]
+        for pattern, converter in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                return converter(match.group(1))
+
+        # Named horizons
+        horizon_map = {
+            'short term': 3, 'short-term': 3,
+            'medium term': 12, 'medium-term': 12, 'mid term': 12, 'mid-term': 12,
+            'long term': 36, 'long-term': 36,
+        }
+        for phrase, months in horizon_map.items():
+            if phrase in message:
+                return months
+        return None
 
     def _adjust_confidence(self, confidence: float, entities: Dict[str, Any]) -> float:
         """Adjust confidence based on entity extraction results."""

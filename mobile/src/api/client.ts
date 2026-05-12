@@ -157,4 +157,45 @@ export async function getHealth() {
   return res.data;
 }
 
+// ---- ML-powered endpoints ----
+
+export async function getMarketSummary() {
+  const res = await api.get('/market-summary');
+  return res.data;
+}
+
+export async function getPortfolioRecommendation(data: {
+  amount: number;
+  risk_level: string;
+  horizon_months: number;
+  goals?: string;
+}) {
+  const res = await api.post('/portfolio/recommend', data);
+  return res.data;
+}
+
+export async function getRiskAnalysis(data: {
+  portfolio_id?: string;
+  symbols?: string[];
+  weights?: number[];
+}) {
+  const res = await api.post('/risk-analysis', data);
+  return res.data;
+}
+
+export async function getSentiment(symbol: string) {
+  const res = await api.get(`/sentiment/${symbol}`);
+  return res.data;
+}
+
+export async function getForecast(data: {
+  symbols: string[];
+  weights: number[];
+  amount: number;
+  months: number;
+}) {
+  const res = await api.post('/forecast', data);
+  return res.data;
+}
+
 export default api;

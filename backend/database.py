@@ -12,7 +12,10 @@ from sqlalchemy import func, desc, distinct
 from sqlalchemy.orm import joinedload
 
 from .db_session import SessionLocal
-from .models import Base, User, Portfolio, Stock, ChatMessage, Prediction, EmailAlert
+from .models import (
+    Base, User, Portfolio, Stock, ChatMessage, Prediction, EmailAlert,
+    MarketData, SentimentScore, MacroIndicator
+)
 
 logger = logging.getLogger(__name__)
 
@@ -532,6 +535,199 @@ class DatabaseManager:
             return [self._alert_to_dict(a) for a in alerts]
         except Exception as e:
             logger.error(f"Failed to get user alerts: {e}")
+            return []
+        finally:
+            session.close()
+
+    # ------------------------------------------------------------------ #
+    # Market Data
+    # ------------------------------------------------------------------ #
+
+    def save_market_data(self, symbol: str, date, ohlcv: Dict[str, Any], source: str) -> str:
+        """Save or update market data (upsert pattern)."""
+        session = self._get_session()
+        try:
+            existing = session.query(MarketData).filter(
+                MarketData.symbol == symbol,
+                MarketData.date == date,
+                MarketData.source == source
+            ).first()
+
+            if existing:
+                existing.open = ohlcv.get('open')
+                existing.high = ohlcv.get('high')
+                existing.low = ohlcv.get('low')
+                existing.close = ohlcv.get('close')
+                existing.volume = ohlcv.get('volume')
+                existing.adjusted_close = ohlcv.get('adjusted_close')
+                session.commit()
+                return str(existing.id)
+            else:
+                md = MarketData(
+                    symbol=symbol,
+                    date=date,
+                    open=ohlcv.get('open'),
+                    high=ohlcv.get('high'),
+                    low=ohlcv.get('low'),
+                    close=ohlcv.get('close'),
+                    volume=ohlcv.get('volume'),
+                    adjusted_close=ohlcv.get('adjusted_close'),
+                    source=source,
+                )
+                session.add(md)
+                session.commit()
+                return str(md.id)
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to save market data for {symbol}: {e}")
+            return None
+        finally:
+            session.close()
+
+    def get_market_data(self, symbol: str, start_date, end_date) -> List[Dict[str, Any]]:
+        """Get market data for a symbol within a date range."""
+        session = self._get_session()
+        try:
+            rows = session.query(MarketData).filter(
+                MarketData.symbol == symbol,
+                MarketData.date >= start_date,
+                MarketData.date <= end_date
+            ).order_by(MarketData.date).all()
+            return [
+                {
+                    'symbol': r.symbol, 'date': r.date,
+                    'open': r.open, 'high': r.high, 'low': r.low,
+                    'close': r.close, 'volume': r.volume,
+                    'adjusted_close': r.adjusted_close, 'source': r.source,
+                }
+                for r in rows
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get market data for {symbol}: {e}")
+            return []
+        finally:
+            session.close()
+
+    def get_tracked_symbols(self) -> List[str]:
+        """Get unique symbols from the stocks table."""
+        session = self._get_session()
+        try:
+            symbols = session.query(distinct(Stock.symbol)).all()
+            return [s[0] for s in symbols]
+        except Exception as e:
+            logger.error(f"Failed to get tracked symbols: {e}")
+            return []
+        finally:
+            session.close()
+
+    # ------------------------------------------------------------------ #
+    # Sentiment
+    # ------------------------------------------------------------------ #
+
+    def save_sentiment_score(self, symbol: str, date, score: float,
+                             label: str, confidence: float, source: str,
+                             headline: str) -> str:
+        """Save a sentiment score."""
+        session = self._get_session()
+        try:
+            ss = SentimentScore(
+                symbol=symbol,
+                date=date,
+                sentiment_score=score,
+                sentiment_label=label,
+                confidence=confidence,
+                source=source,
+                headline=headline,
+            )
+            session.add(ss)
+            session.commit()
+            return str(ss.id)
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to save sentiment score for {symbol}: {e}")
+            return None
+        finally:
+            session.close()
+
+    def get_sentiment_scores(self, symbol: str, days: int = 30) -> List[Dict[str, Any]]:
+        """Get sentiment scores for a symbol over the past N days."""
+        session = self._get_session()
+        try:
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            rows = session.query(SentimentScore).filter(
+                SentimentScore.symbol == symbol,
+                SentimentScore.created_at >= cutoff
+            ).order_by(desc(SentimentScore.date)).all()
+            return [
+                {
+                    'symbol': r.symbol, 'date': r.date,
+                    'sentiment_score': r.sentiment_score,
+                    'sentiment_label': r.sentiment_label,
+                    'confidence': r.confidence, 'source': r.source,
+                    'headline': r.headline, 'created_at': r.created_at,
+                }
+                for r in rows
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get sentiment scores for {symbol}: {e}")
+            return []
+        finally:
+            session.close()
+
+    # ------------------------------------------------------------------ #
+    # Macro Indicators
+    # ------------------------------------------------------------------ #
+
+    def save_macro_indicator(self, name: str, date, value: float,
+                             source: str = 'fred') -> str:
+        """Save or update a macro indicator (upsert pattern)."""
+        session = self._get_session()
+        try:
+            existing = session.query(MacroIndicator).filter(
+                MacroIndicator.indicator_name == name,
+                MacroIndicator.date == date
+            ).first()
+
+            if existing:
+                existing.value = value
+                existing.source = source
+                session.commit()
+                return str(existing.id)
+            else:
+                mi = MacroIndicator(
+                    indicator_name=name,
+                    date=date,
+                    value=value,
+                    source=source,
+                )
+                session.add(mi)
+                session.commit()
+                return str(mi.id)
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to save macro indicator {name}: {e}")
+            return None
+        finally:
+            session.close()
+
+    def get_macro_indicators(self, names: List[str], start_date, end_date) -> List[Dict[str, Any]]:
+        """Get macro indicators by name within a date range."""
+        session = self._get_session()
+        try:
+            rows = session.query(MacroIndicator).filter(
+                MacroIndicator.indicator_name.in_(names),
+                MacroIndicator.date >= start_date,
+                MacroIndicator.date <= end_date
+            ).order_by(MacroIndicator.date).all()
+            return [
+                {
+                    'indicator_name': r.indicator_name, 'date': r.date,
+                    'value': r.value, 'source': r.source,
+                }
+                for r in rows
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get macro indicators: {e}")
             return []
         finally:
             session.close()

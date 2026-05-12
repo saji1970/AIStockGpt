@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Trash2, RefreshCw, ArrowLeft, Briefcase, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, X, Trash2, RefreshCw, ArrowLeft, Briefcase, TrendingUp, TrendingDown, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PortfolioCard from '../components/PortfolioCard';
 import {
@@ -9,6 +9,7 @@ import {
   getPortfolioSummary,
   addStockToPortfolio,
   deleteStockFromPortfolio,
+  getRiskAnalysis,
 } from '../services/api';
 
 export default function PortfolioPage() {
@@ -18,6 +19,8 @@ export default function PortfolioPage() {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
+  const [riskData, setRiskData] = useState(null);
+  const [loadingRisk, setLoadingRisk] = useState(false);
 
   // Create portfolio form
   const [newName, setNewName] = useState('');
@@ -112,6 +115,19 @@ export default function PortfolioPage() {
     }
   };
 
+  const handleAnalyzeRisk = async () => {
+    if (!selectedPortfolio?.id) return;
+    try {
+      setLoadingRisk(true);
+      const result = await getRiskAnalysis({ portfolio_id: selectedPortfolio.id });
+      setRiskData(result);
+    } catch (err) {
+      toast.error('Failed to analyze risk');
+    } finally {
+      setLoadingRisk(false);
+    }
+  };
+
   // Modal backdrop
   const Modal = ({ show, onClose, children }) => (
     <AnimatePresence>
@@ -169,6 +185,14 @@ export default function PortfolioPage() {
               <RefreshCw className={`w-5 h-5 text-gray-600 ${loadingSummary ? 'animate-spin' : ''}`} />
             </button>
             <button
+              onClick={handleAnalyzeRisk}
+              disabled={loadingRisk || !(selectedPortfolio.stocks?.length > 0)}
+              className="flex items-center space-x-2 px-4 py-2 border border-indigo-300 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-all disabled:opacity-50"
+            >
+              <Shield className={`w-4 h-4 ${loadingRisk ? 'animate-spin' : ''}`} />
+              <span>Analyze Risk</span>
+            </button>
+            <button
               onClick={() => setShowAddStockModal(true)}
               className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-lg text-sm font-medium hover:from-primary-600 hover:to-primary-700 transition-all"
             >
@@ -205,6 +229,40 @@ export default function PortfolioPage() {
             </p>
           </div>
         </div>
+
+        {/* Risk Analysis Card */}
+        {riskData && (
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Risk Analysis</h3>
+              <button onClick={() => setRiskData(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{riskData.sharpe_ratio?.toFixed(2)}</div>
+                <div className="text-xs text-gray-500">Sharpe Ratio</div>
+              </div>
+              <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{(riskData.annual_volatility * 100)?.toFixed(1)}%</div>
+                <div className="text-xs text-gray-500">Annual Volatility</div>
+              </div>
+              <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-red-600">{(riskData.max_drawdown * 100)?.toFixed(1)}%</div>
+                <div className="text-xs text-gray-500">Max Drawdown</div>
+              </div>
+              <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{(riskData.var_95 * 100)?.toFixed(2)}%</div>
+                <div className="text-xs text-gray-500">VaR (95%)</div>
+              </div>
+              <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{riskData.beta?.toFixed(2)}</div>
+                <div className="text-xs text-gray-500">Beta</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Holdings table */}
         {selectedPortfolio.stocks && selectedPortfolio.stocks.length > 0 ? (

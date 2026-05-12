@@ -16,10 +16,27 @@ logger = logging.getLogger(__name__)
 class FeaturePipeline:
     """Unified feature engineering: technical, volatility, momentum, macro."""
 
+    # Mapping for yfinance fallback: Alpha Vantage suffix -> yfinance suffix
+    _YF_SUFFIX_MAP = {'.BSE': '.BO', '.NSE': '.NS'}
+
     def __init__(self, db_manager=None, av_collector=None):
         """Uses db_manager for macro data. Falls back to yfinance for price data."""
         self.db_manager = db_manager
         self.av_collector = av_collector
+
+    @staticmethod
+    def _yf_symbol(symbol: str) -> str:
+        """Convert an Alpha Vantage symbol to its yfinance equivalent."""
+        for av_suffix, yf_suffix in FeaturePipeline._YF_SUFFIX_MAP.items():
+            if symbol.upper().endswith(av_suffix):
+                return symbol[: -len(av_suffix)] + yf_suffix
+        return symbol
+
+    @staticmethod
+    def _is_indian(symbol: str) -> bool:
+        """Check if a symbol belongs to an Indian exchange."""
+        upper = symbol.upper()
+        return upper.endswith('.BSE') or upper.endswith('.BO') or upper.endswith('.NS') or upper.endswith('.NSE')
 
     def build_features(self, symbol: str, lookback_days: int = 504) -> pd.DataFrame:
         """
@@ -39,9 +56,10 @@ class FeaturePipeline:
                 logger.warning(f"Alpha Vantage feature fetch failed for {symbol}: {e}")
 
         if df.empty:
-            ticker = yf.Ticker(symbol)
+            yf_sym = self._yf_symbol(symbol)
+            ticker = yf.Ticker(yf_sym)
             df = ticker.history(period=f"{lookback_days}d")
-            logger.info(f"Feature data source for {symbol}: yfinance")
+            logger.info(f"Feature data source for {symbol}: yfinance ({yf_sym})")
 
         if df.empty:
             raise ValueError(f"No price data available for {symbol}")
@@ -258,20 +276,21 @@ class FeaturePipeline:
         df['return_63d'] = close.pct_change(63)
         df['return_252d'] = close.pct_change(252)
 
-        # Beta vs SPY
+        # Beta vs benchmark (SPY for US, ^BSESN for Indian stocks)
+        benchmark_sym = '^BSESN' if self._is_indian(symbol) else 'SPY'
         try:
-            spy = yf.Ticker('SPY').history(period=f"{len(df) + 30}d")
-            if not spy.empty:
-                spy.columns = [c.lower().replace(' ', '_') for c in spy.columns]
-                spy_returns = spy['close'].pct_change()
+            bench = yf.Ticker(benchmark_sym).history(period=f"{len(df) + 30}d")
+            if not bench.empty:
+                bench.columns = [c.lower().replace(' ', '_') for c in bench.columns]
+                bench_returns = bench['close'].pct_change()
                 # Align dates
                 aligned = pd.DataFrame({
                     'stock': returns,
-                    'spy': spy_returns
+                    'bench': bench_returns
                 }).dropna()
                 if len(aligned) > 60:
-                    rolling_cov = aligned['stock'].rolling(60).cov(aligned['spy'])
-                    rolling_var = aligned['spy'].rolling(60).var()
+                    rolling_cov = aligned['stock'].rolling(60).cov(aligned['bench'])
+                    rolling_var = aligned['bench'].rolling(60).var()
                     beta = rolling_cov / rolling_var.replace(0, np.nan)
                     df['beta_spy'] = beta.reindex(df.index)
                 else:

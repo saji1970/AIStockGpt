@@ -168,6 +168,7 @@ REGEX_INTENT_PATTERNS = {
 
 # Common stock symbols
 STOCK_SYMBOLS = [
+    # US Stocks
     'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX',
     'ADBE', 'CRM', 'ORCL', 'INTC', 'AMD', 'IBM', 'CSCO', 'QCOM',
     'AVGO', 'TXN', 'MU', 'AMAT', 'KLAC', 'LRCX', 'ADI', 'MCHP',
@@ -176,6 +177,22 @@ STOCK_SYMBOLS = [
     'LOW', 'COST', 'TMO', 'ABBV', 'JNJ', 'PFE', 'MRK', 'UNH',
     'CVS', 'ANTM', 'CI', 'HUM', 'ELV', 'DHR', 'GE', 'BA', 'CAT',
     'DE', 'MMM', 'HON', 'RTX', 'LMT', 'NOC', 'GD', 'LHX',
+    'SPY', 'QQQ', 'DIA', 'IWM', 'VOO', 'VTI', 'XOM', 'CVX', 'PG',
+    'XLK', 'XLV', 'XLF', 'XLE', 'XLY', 'VGT', 'BND', 'AGG', 'TLT',
+    'VIG', 'SCHD', 'VYM', 'VNQ', 'GLD', 'VXUS',
+    # India - BSE (Nifty 50 / Sensex constituents)
+    'INFY.BSE', 'TCS.BSE', 'WIPRO.BSE', 'HCLTECH.BSE', 'TECHM.BSE',
+    'HDFCBANK.BSE', 'ICICIBANK.BSE', 'SBIN.BSE', 'KOTAKBANK.BSE',
+    'AXISBANK.BSE', 'BAJFINANCE.BSE', 'BAJAJFINSV.BSE', 'INDUSINDBK.BSE',
+    'HINDUNILVR.BSE', 'ITC.BSE', 'NESTLEIND.BSE', 'BRITANNIA.BSE',
+    'TATACONSUM.BSE', 'ASIANPAINT.BSE', 'TITAN.BSE',
+    'RELIANCE.BSE', 'LT.BSE', 'MARUTI.BSE', 'TATAMOTORS.BSE',
+    'EICHERMOT.BSE', 'ULTRACEMCO.BSE', 'GRASIM.BSE',
+    'SUNPHARMA.BSE', 'DRREDDY.BSE', 'CIPLA.BSE', 'DIVISLAB.BSE',
+    'APOLLOHOSP.BSE',
+    'ONGC.BSE', 'NTPC.BSE', 'POWERGRID.BSE', 'BPCL.BSE', 'COALINDIA.BSE',
+    'TATASTEEL.BSE', 'HINDALCO.BSE', 'JSWSTEEL.BSE',
+    'BHARTIARTL.BSE', 'ADANIENT.BSE', 'ADANIPORTS.BSE',
 ]
 
 
@@ -341,17 +358,25 @@ class EnhancedNLPProcessor:
         # Check known symbols in original (case-sensitive)
         words = original.upper().split()
         for word in words:
-            clean = re.sub(r'[^\w]', '', word)
+            # Preserve dots for exchange suffixes like .BSE / .NSE
+            clean = re.sub(r'[^\w.]', '', word).strip('.')
             if clean in STOCK_SYMBOLS and clean not in found:
                 found.append(clean)
+            # Also check without suffix (e.g. user types "INFY" -> match "INFY.BSE")
+            base = clean.split('.')[0]
+            if base and base not in [f.split('.')[0] for f in found]:
+                for sym in STOCK_SYMBOLS:
+                    if sym.split('.')[0] == base and sym not in found:
+                        found.append(sym)
+                        break
 
-        # Pattern-based extraction from original message
+        # Pattern-based extraction from original message (US symbols)
         symbol_patterns = [
-            r"([A-Z]{1,5})\s+stock",
-            r"stock\s+([A-Z]{1,5})",
-            r"analyze\s+([A-Z]{1,5})",
-            r"predict\s+([A-Z]{1,5})",
-            r"([A-Z]{1,5})\s+analysis",
+            r"([A-Z]{1,10}(?:\.[A-Z]{1,4})?)\s+stock",
+            r"stock\s+([A-Z]{1,10}(?:\.[A-Z]{1,4})?)",
+            r"analyze\s+([A-Z]{1,10}(?:\.[A-Z]{1,4})?)",
+            r"predict\s+([A-Z]{1,10}(?:\.[A-Z]{1,4})?)",
+            r"([A-Z]{1,10}(?:\.[A-Z]{1,4})?)\s+analysis",
         ]
 
         for pattern in symbol_patterns:

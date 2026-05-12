@@ -12,8 +12,12 @@ import logging
 # Ensure backend is importable
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from backend.ml.feature_pipeline import FeaturePipeline
 from backend.ml.xgboost_model import XGBoostPredictor
+from backend.data.alphavantage_collector import AlphaVantageCollector
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,10 +57,51 @@ REAL_ESTATE_COMMODITY = ['VNQ', 'GLD']
 # International
 INTERNATIONAL = ['VXUS']
 
+# ── India (BSE-listed, Nifty 50 / Sensex constituents) ───────
+# India - IT / Tech
+INDIA_TECH = [
+    'INFY.BSE', 'TCS.BSE', 'WIPRO.BSE', 'HCLTECH.BSE', 'TECHM.BSE',
+]
+# India - Banking / Finance
+INDIA_FINANCE = [
+    'HDFCBANK.BSE', 'ICICIBANK.BSE', 'SBIN.BSE', 'KOTAKBANK.BSE',
+    'AXISBANK.BSE', 'BAJFINANCE.BSE', 'BAJAJFINSV.BSE', 'INDUSINDBK.BSE',
+]
+# India - Consumer / FMCG
+INDIA_CONSUMER = [
+    'HINDUNILVR.BSE', 'ITC.BSE', 'NESTLEIND.BSE', 'BRITANNIA.BSE',
+    'TATACONSUM.BSE', 'ASIANPAINT.BSE', 'TITAN.BSE',
+]
+# India - Industrials / Auto
+INDIA_INDUSTRIAL = [
+    'RELIANCE.BSE', 'LT.BSE', 'MARUTI.BSE', 'TATAMOTORS.BSE',
+    'EICHERMOT.BSE', 'ULTRACEMCO.BSE', 'GRASIM.BSE',
+]
+# India - Pharma / Healthcare
+INDIA_HEALTH = [
+    'SUNPHARMA.BSE', 'DRREDDY.BSE', 'CIPLA.BSE', 'DIVISLAB.BSE',
+    'APOLLOHOSP.BSE',
+]
+# India - Energy / Metals / Mining
+INDIA_ENERGY_METALS = [
+    'ONGC.BSE', 'NTPC.BSE', 'POWERGRID.BSE', 'BPCL.BSE', 'COALINDIA.BSE',
+    'TATASTEEL.BSE', 'HINDALCO.BSE', 'JSWSTEEL.BSE',
+]
+# India - Telecom / Conglomerate
+INDIA_TELECOM = [
+    'BHARTIARTL.BSE', 'ADANIENT.BSE', 'ADANIPORTS.BSE',
+]
+
+INDIA_ALL = (
+    INDIA_TECH + INDIA_FINANCE + INDIA_CONSUMER + INDIA_INDUSTRIAL
+    + INDIA_HEALTH + INDIA_ENERGY_METALS + INDIA_TELECOM
+)
+
 SYMBOLS = (
     TECH + FINANCE + CONSUMER + HEALTH + INDUSTRIAL + ENERGY
     + INDEX_ETFS + SECTOR_ETFS + BOND_ETFS + DIVIDEND_ETFS
     + HEDGE_FUND_ALTS + REAL_ESTATE_COMMODITY + INTERNATIONAL
+    + INDIA_ALL
 )
 
 
@@ -67,7 +112,11 @@ def main():
 
     os.makedirs('models', exist_ok=True)
 
-    pipeline = FeaturePipeline()
+    av_collector = AlphaVantageCollector()
+    logger.info(f"Alpha Vantage API key: {'*' * max(0, len(av_collector.api_key) - 4)}{av_collector.api_key[-4:] if av_collector.api_key else 'NOT SET'}")
+    logger.info(f"Total symbols to train: {len(SYMBOLS)} ({len(SYMBOLS) - len(INDIA_ALL)} US + {len(INDIA_ALL)} India)")
+
+    pipeline = FeaturePipeline(av_collector=av_collector)
     predictor = XGBoostPredictor(models_dir='models')
 
     results = {}

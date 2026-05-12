@@ -254,6 +254,15 @@ def get_or_create_model(symbol: str) -> Dict[str, Any]:
     
     return models_cache[symbol]
 
+def _to_yf_symbol(symbol: str) -> str:
+    """Convert Alpha Vantage / BSE symbol to yfinance equivalent."""
+    _map = {'.BSE': '.BO', '.NSE': '.NS'}
+    for av_suffix, yf_suffix in _map.items():
+        if symbol.upper().endswith(av_suffix):
+            return symbol[: -len(av_suffix)] + yf_suffix
+    return symbol
+
+
 def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
     """Fetch real-time stock data via RapidAPI, with Yahoo Finance and yfinance fallbacks."""
     import requests as req
@@ -298,8 +307,9 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
             return av_quote
 
     # Fallback: Direct Yahoo Finance v8 API (no library needed)
+    yf_sym = _to_yf_symbol(symbol)
     try:
-        yahoo_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+        yahoo_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_sym}"
         yahoo_headers = {"User-Agent": "Mozilla/5.0"}
         resp = req.get(yahoo_url, headers=yahoo_headers, params={"range": "5d", "interval": "1d"}, timeout=15)
         if resp.status_code == 200:
@@ -345,7 +355,7 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
     # Fallback: yfinance library
     try:
         import yfinance as yf
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(yf_sym)
         hist = ticker.history(period="5d")
 
         if hist.empty:

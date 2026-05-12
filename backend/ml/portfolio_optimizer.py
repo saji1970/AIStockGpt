@@ -13,11 +13,32 @@ from pypfopt.discrete_allocation import DiscreteAllocation, get_latest_prices
 
 logger = logging.getLogger(__name__)
 
+# Mapping for yfinance: Alpha Vantage suffix -> yfinance suffix
+_YF_SUFFIX_MAP = {'.BSE': '.BO', '.NSE': '.NS'}
+
+
+def _to_yf_symbol(symbol: str) -> str:
+    """Convert an Alpha Vantage symbol to its yfinance equivalent."""
+    for av_suffix, yf_suffix in _YF_SUFFIX_MAP.items():
+        if symbol.upper().endswith(av_suffix):
+            return symbol[: -len(av_suffix)] + yf_suffix
+    return symbol
+
+
 # Default symbol pools by risk level
 SYMBOL_POOLS = {
-    'conservative': ['BND', 'AGG', 'TLT', 'VTI', 'GLD', 'VIG', 'SCHD'],
-    'moderate': ['VTI', 'QQQ', 'BND', 'GLD', 'VIG', 'AAPL', 'MSFT', 'GOOGL', 'JNJ', 'PG'],
-    'aggressive': ['QQQ', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AMD', 'CRM'],
+    'conservative': [
+        'BND', 'AGG', 'TLT', 'VTI', 'GLD', 'VIG', 'SCHD',
+        'HDFCBANK.BSE', 'SBIN.BSE', 'ITC.BSE',
+    ],
+    'moderate': [
+        'VTI', 'QQQ', 'BND', 'GLD', 'VIG', 'AAPL', 'MSFT', 'GOOGL', 'JNJ', 'PG',
+        'INFY.BSE', 'TCS.BSE', 'HDFCBANK.BSE', 'RELIANCE.BSE',
+    ],
+    'aggressive': [
+        'QQQ', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AMD', 'CRM',
+        'INFY.BSE', 'TATAMOTORS.BSE', 'BAJFINANCE.BSE', 'ADANIENT.BSE',
+    ],
 }
 
 
@@ -158,7 +179,7 @@ class PortfolioOptimizer:
         valid_symbols = []
         for s in symbols:
             try:
-                ticker = yf.Ticker(s)
+                ticker = yf.Ticker(_to_yf_symbol(s))
                 hist = ticker.history(period="5d")
                 if not hist.empty:
                     valid_symbols.append(s)
@@ -177,7 +198,7 @@ class PortfolioOptimizer:
         for symbol, weight in weights.items():
             sym_amount = amount * weight
             try:
-                ticker = yf.Ticker(symbol)
+                ticker = yf.Ticker(_to_yf_symbol(symbol))
                 latest_price = ticker.history(period="1d")['Close'].iloc[-1]
                 shares_approx = sym_amount / latest_price
             except Exception:
@@ -216,7 +237,7 @@ class PortfolioOptimizer:
         prices = {}
         for symbol in symbols:
             try:
-                ticker = yf.Ticker(symbol)
+                ticker = yf.Ticker(_to_yf_symbol(symbol))
                 hist = ticker.history(period=f"{period_days}d")
                 if not hist.empty:
                     prices[symbol] = hist['Close']

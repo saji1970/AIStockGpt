@@ -33,7 +33,7 @@ ALLOWED_ORIGINS = [
 ALLOWED_ORIGINS = [o for o in ALLOWED_ORIGINS if o]
 
 # Input validation patterns
-STOCK_SYMBOL_PATTERN = r'^[A-Z]{1,5}(-[A-Z]{1,4})?(\.[A-Z])?$'
+STOCK_SYMBOL_PATTERN = r'^[A-Z]{1,10}(-[A-Z]{1,4})?(\.[A-Z]{1,4})?$'
 EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 PASSWORD_PATTERN = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
 

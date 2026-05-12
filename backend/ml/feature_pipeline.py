@@ -16,9 +16,10 @@ logger = logging.getLogger(__name__)
 class FeaturePipeline:
     """Unified feature engineering: technical, volatility, momentum, macro."""
 
-    def __init__(self, db_manager=None):
+    def __init__(self, db_manager=None, av_collector=None):
         """Uses db_manager for macro data. Falls back to yfinance for price data."""
         self.db_manager = db_manager
+        self.av_collector = av_collector
 
     def build_features(self, symbol: str, lookback_days: int = 504) -> pd.DataFrame:
         """
@@ -26,9 +27,21 @@ class FeaturePipeline:
 
         Returns DataFrame indexed by date with ~50 feature columns.
         """
-        # Fetch price data
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period=f"{lookback_days}d")
+        # Fetch price data (Alpha Vantage first, yfinance fallback)
+        df = pd.DataFrame()
+        if self.av_collector:
+            try:
+                av_df = self.av_collector.get_daily_history(symbol, days=lookback_days)
+                if av_df is not None and not av_df.empty:
+                    df = av_df.copy()
+                    logger.info(f"Feature data source for {symbol}: Alpha Vantage")
+            except Exception as e:
+                logger.warning(f"Alpha Vantage feature fetch failed for {symbol}: {e}")
+
+        if df.empty:
+            ticker = yf.Ticker(symbol)
+            df = ticker.history(period=f"{lookback_days}d")
+            logger.info(f"Feature data source for {symbol}: yfinance")
 
         if df.empty:
             raise ValueError(f"No price data available for {symbol}")

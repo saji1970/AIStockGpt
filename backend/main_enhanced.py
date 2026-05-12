@@ -144,6 +144,7 @@ xgboost_predictor = None
 monte_carlo_sim = None
 portfolio_optimizer = None
 sentiment_analyzer = None
+av_collector = None
 
 # Pydantic models
 class ChatRequest(BaseModel):
@@ -287,6 +288,14 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
                 logger.warning(f"RapidAPI returned {resp.status_code} for {symbol} (attempt {attempt+1})")
             except Exception as e:
                 logger.warning(f"RapidAPI stock fetch failed for {symbol} (attempt {attempt+1}): {e}")
+
+    # Tier 2: Alpha Vantage
+    global av_collector
+    if av_collector:
+        av_quote = av_collector.get_quote(symbol)
+        if av_quote:
+            logger.info(f"Stock data fetched via Alpha Vantage for {symbol}")
+            return av_quote
 
     # Fallback: Direct Yahoo Finance v8 API (no library needed)
     try:
@@ -1431,6 +1440,7 @@ async def startup_event():
     """Initialize the application on startup."""
     global feature_pipeline, xgboost_predictor, monte_carlo_sim
     global portfolio_optimizer, sentiment_analyzer
+    global av_collector
 
     logger.info("Starting AI Stock GPT Enhanced API v2.0")
 
@@ -1455,6 +1465,7 @@ async def startup_event():
 
     # Initialize ML Engine
     try:
+        from backend.data.alphavantage_collector import AlphaVantageCollector
         from backend.ml.feature_pipeline import FeaturePipeline
         from backend.ml.xgboost_model import XGBoostPredictor
         from backend.ml.monte_carlo import MonteCarloSimulator
@@ -1462,7 +1473,8 @@ async def startup_event():
         from backend.ml.sentiment import SentimentAnalyzer
 
         _db = db_manager if ENHANCED_MODULES_AVAILABLE else None
-        feature_pipeline = FeaturePipeline(db_manager=_db)
+        av_collector = AlphaVantageCollector()
+        feature_pipeline = FeaturePipeline(db_manager=_db, av_collector=av_collector)
         xgboost_predictor = XGBoostPredictor()
         monte_carlo_sim = MonteCarloSimulator()
         portfolio_optimizer = PortfolioOptimizer()

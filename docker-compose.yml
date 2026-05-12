@@ -30,6 +30,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - PORT=8080
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - alphavantage_apikey=${alphavantage_apikey}
       - ALPHA_VANTAGE_KEY=${ALPHA_VANTAGE_KEY}
       - FRED_API_KEY=${FRED_API_KEY}
     volumes:

@@ -27,8 +27,11 @@ COPY data_pipeline.py .
 COPY main.py .
 COPY config.py .
 
+# Copy pre-trained ML models
+COPY models/ ./models/
+
 # Create necessary directories
-RUN mkdir -p data models
+RUN mkdir -p data
 
 # Set environment variables
 ENV PYTHONPATH=/app

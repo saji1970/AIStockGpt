@@ -55,19 +55,16 @@ SYMBOL_POOLS_INDIA = {
     ],
 }
 
-# Mixed (global) pool - default when no market specified
+# Default pool when no market specified - US-only (most common default)
 SYMBOL_POOLS = {
     'conservative': [
-        'BND', 'AGG', 'TLT', 'VTI', 'GLD', 'VIG', 'SCHD',
-        'HDFCBANK.BSE', 'SBIN.BSE', 'ITC.BSE',
+        'BND', 'AGG', 'TLT', 'VTI', 'GLD', 'VIG', 'SCHD', 'VYM', 'JNJ', 'PG',
     ],
     'moderate': [
         'VTI', 'QQQ', 'BND', 'GLD', 'VIG', 'AAPL', 'MSFT', 'GOOGL', 'JNJ', 'PG',
-        'INFY.BSE', 'TCS.BSE', 'HDFCBANK.BSE', 'RELIANCE.BSE',
     ],
     'aggressive': [
         'QQQ', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AMD', 'CRM',
-        'INFY.BSE', 'TATAMOTORS.BSE', 'BAJFINANCE.BSE', 'ADANIENT.BSE',
     ],
 }
 
@@ -84,9 +81,9 @@ _STATIC_ALLOCATIONS = {
         'aggressive':   {'INFY.BSE': 0.15, 'TATAMOTORS.BSE': 0.15, 'BAJFINANCE.BSE': 0.15, 'RELIANCE.BSE': 0.20, 'ADANIENT.BSE': 0.15, 'HCLTECH.BSE': 0.10, 'TITAN.BSE': 0.10},
     },
     'global': {
-        'conservative': {'BND': 0.20, 'VTI': 0.15, 'GLD': 0.15, 'VIG': 0.15, 'HDFCBANK.BSE': 0.15, 'SBIN.BSE': 0.10, 'ITC.BSE': 0.10},
-        'moderate':     {'VTI': 0.15, 'QQQ': 0.15, 'AAPL': 0.10, 'MSFT': 0.10, 'BND': 0.10, 'GLD': 0.10, 'INFY.BSE': 0.10, 'HDFCBANK.BSE': 0.10, 'RELIANCE.BSE': 0.10},
-        'aggressive':   {'QQQ': 0.15, 'AAPL': 0.10, 'NVDA': 0.10, 'MSFT': 0.10, 'GOOGL': 0.10, 'AMZN': 0.10, 'INFY.BSE': 0.10, 'TATAMOTORS.BSE': 0.10, 'BAJFINANCE.BSE': 0.10, 'TSLA': 0.05},
+        'conservative': {'BND': 0.25, 'AGG': 0.15, 'VTI': 0.20, 'GLD': 0.15, 'VIG': 0.15, 'SCHD': 0.10},
+        'moderate':     {'VTI': 0.20, 'QQQ': 0.15, 'AAPL': 0.15, 'MSFT': 0.15, 'BND': 0.15, 'GLD': 0.10, 'GOOGL': 0.10},
+        'aggressive':   {'QQQ': 0.20, 'AAPL': 0.15, 'NVDA': 0.15, 'MSFT': 0.15, 'GOOGL': 0.10, 'AMZN': 0.10, 'TSLA': 0.10, 'META': 0.05},
     },
 }
 

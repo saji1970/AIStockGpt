@@ -521,6 +521,13 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             risk = entities.get('risk_level', defaults["default_risk"])
             horizon = entities.get('horizon_months', defaults["default_horizon"])
             market = entities.get('market')  # 'india', 'us', or None
+            # Infer market from currency when not explicitly specified
+            if not market:
+                currency = entities.get('currency', '').upper()
+                if currency == 'USD':
+                    market = 'us'
+                elif currency == 'INR':
+                    market = 'india'
             try:
                 ml_results['allocation'] = portfolio_optimizer.recommend_allocation(amount, risk, horizon, market=market)
                 # Run Monte Carlo on the recommended allocation

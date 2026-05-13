@@ -9,6 +9,10 @@ and provides advanced features including user authentication, portfolio manageme
 
 import os
 import sys
+
+# Before any TensorFlow import (e.g. via lstm_model): drop TF INFO/WARNING noise on CPU hosts.
+# Some XLA/CUDA "Unable to register ... factory" ERROR lines can still appear with GPU-enabled TF wheels on CPU-only machines; they are usually harmless.
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 import json
 import re
 from datetime import datetime, timedelta

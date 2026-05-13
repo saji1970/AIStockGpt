@@ -14,6 +14,18 @@ from typing import Dict, List, Tuple, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
+def _amount_match_is_share_price_ceiling(message: str, match: re.Match) -> bool:
+    """Digits after 'below/under/less than' (+ optional $/₹) are usually a share-price cap, not investable cash."""
+    tail = message[: match.start()].lower()[-80:]
+    return bool(
+        re.search(
+            r"(?:below|under|less\s+than|cheaper\s+than|max|maximum)\s*(?:\$|₹|rs\.?|inr|rupees?)?\s*$",
+            tail,
+        )
+    )
+
+
 # Try to import sentence-transformers
 try:
     from sentence_transformers import SentenceTransformer
@@ -343,7 +355,7 @@ STOCK_SYMBOLS = [
     'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX',
     'ADBE', 'CRM', 'ORCL', 'INTC', 'AMD', 'IBM', 'CSCO', 'QCOM',
     'AVGO', 'TXN', 'MU', 'MRVL', 'AMAT', 'KLAC', 'LRCX', 'ADI', 'MCHP',
-    'PYPL', 'SQ', 'SOFI', 'V', 'MA', 'JPM', 'BAC', 'WFC', 'GS', 'MS',
+    'PYPL', 'SQ', 'SOFI', 'FRSH', 'NVTS', 'BBAI', 'RKLB', 'V', 'MA', 'JPM', 'BAC', 'WFC', 'GS', 'MS',
     'DIS', 'NKE', 'SBUX', 'MCD', 'KO', 'PEP', 'WMT', 'TGT', 'HD',
     'LOW', 'COST', 'TMO', 'ABBV', 'JNJ', 'PFE', 'MRK', 'UNH',
     'CVS', 'ANTM', 'CI', 'HUM', 'ELV', 'DHR', 'GE', 'BA', 'CAT',
@@ -729,6 +741,8 @@ class EnhancedNLPProcessor:
         for pattern, currency in inr_patterns:
             match = re.search(pattern, message, re.IGNORECASE)
             if match:
+                if _amount_match_is_share_price_ceiling(message, match):
+                    continue
                 try:
                     return {'value': float(match.group(1).replace(',', '')), 'currency': currency}
                 except ValueError:
@@ -742,6 +756,8 @@ class EnhancedNLPProcessor:
         for pattern, currency in usd_patterns:
             match = re.search(pattern, message, re.IGNORECASE)
             if match:
+                if _amount_match_is_share_price_ceiling(message, match):
+                    continue
                 try:
                     return {'value': float(match.group(1).replace(',', '')), 'currency': currency}
                 except ValueError:

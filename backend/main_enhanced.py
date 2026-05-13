@@ -519,6 +519,111 @@ def _format_growth_value_screening_markdown(india: bool) -> str:
     )
 
 
+def _parse_under_price_screening_cap_usd(text: str) -> Optional[float]:
+    """Detect 'best stock under $X / below X USD' style questions; return price cap or None."""
+    tl = (text or "").lower()
+    if not tl:
+        return None
+    if re.search(r"\b(india|inr|rupee|₹|nifty|sensex|bse|nse)\b", tl) and not re.search(
+        r"\b(usd|dollar|bucks|u\.s\.|nyse|nasdaq)\b", tl
+    ):
+        return None
+    if not re.search(r"\b(?:stock|stocks|ticker|pick|invest|investing|equit|compan(?:y|ies)|names?)\b", tl):
+        return None
+    caps: List[float] = []
+    for rx in (
+        r"\b(?:under|below|less\s+than|cheaper\s+than)\s*\$\s*(\d+(?:\.\d+)?)\b",
+        r"\b(?:under|below|less\s+than|cheaper\s+than)\s*(\d+(?:\.\d+)?)\s*(?:usd|dollars?|bucks)\b",
+    ):
+        m = re.search(rx, tl)
+        if m:
+            caps.append(float(m.group(1)))
+    if not caps:
+        return None
+    cap = min(caps)
+    if cap < 1 or cap > 2500:
+        return None
+    return cap
+
+
+def _parse_under_price_screening_cap_inr(text: str) -> Optional[float]:
+    """India: share price under ₹X / X rupees with stock-picking context."""
+    tl = (text or "").lower()
+    if not tl or not re.search(r"\b(india|inr|rupee|₹|nifty|sensex|bse|nse)\b", tl):
+        return None
+    if not re.search(r"\b(?:stock|stocks|ticker|pick|invest|investing)\b", tl):
+        return None
+    caps: List[float] = []
+    for rx in (
+        r"\b(?:under|below|less\s+than|cheaper\s+than)\s*₹\s*(\d+(?:\.\d+)?)\b",
+        r"\b(?:under|below|less\s+than|cheaper\s+than)\s*(\d+(?:\.\d+)?)\s*(?:rupees?|inr|rs\.?)\b",
+    ):
+        m = re.search(rx, tl)
+        if m:
+            caps.append(float(m.group(1)))
+    if not caps:
+        return None
+    cap = min(caps)
+    if cap < 10 or cap > 500000:
+        return None
+    return cap
+
+
+def _format_under_price_screening_usd(cap: float) -> str:
+    cap_disp = f"{cap:.0f}" if float(cap).is_integer() else f"{cap:g}"
+    return (
+        f"## Stocks under **${cap_disp}** (illustrative ideas)\n\n"
+        "People often screen for **growth**, **improving fundamentals**, **theme tailwinds** "
+        "(fintech, AI, SaaS), and **liquidity**—then check that the **live quote** is still under your cap.\n\n"
+        "### Top name frequently discussed in this bucket\n"
+        "**SoFi (SOFI)** — digital banking + investing ecosystem; often cited in “under $20 growth” threads "
+        "because of member growth and expanding product surface (not a recommendation).\n\n"
+        "### Other names people group in “under $20” conversations\n"
+        "| Stock | Theme / why it comes up | Risk (typical) |\n"
+        "|------|-------------------------|----------------|\n"
+        "| **NVTS** (Navitas) | Power / GaN tied to data-center & AI power chains | Medium–High |\n"
+        "| **FRSH** (Freshworks) | Profitable SaaS; growth vs larger software multiples | Medium |\n"
+        "| **BBAI** (BigBear.ai) | Defense + AI; very speculative | High |\n"
+        "| **RKLB** (Rocket Lab) | Space infrastructure; high volatility | High |\n"
+        "| **F** (Ford) | More mature; often “lower drama” than pure growth | Medium |\n\n"
+        "### By style (conversation-style buckets — not advice)\n"
+        "| Style | Name often mentioned |\n"
+        "|-------|----------------------|\n"
+        "| Balanced growth / fintech | SOFI |\n"
+        "| AI / power semis angle | NVTS |\n"
+        "| SaaS growth | FRSH |\n"
+        "| Aggressive / speculative | BBAI |\n"
+        "| Thematic “moonshot” | RKLB |\n\n"
+        "### If you want **lower volatility** than small growth\n"
+        "Larger caps like **QCOM** sometimes trade closer to this range during drawdowns—still verify the current price vs your **$"
+        f"{cap_disp}** cap.\n\n"
+        "### Optional “basket” framing (example only)\n"
+        "Some discussions split exposure across themes—for example **40% SOFI / 25% FRSH / 20% NVTS / 15% RKLB** "
+        "as a *conceptual* mix (not a managed portfolio).\n\n"
+        "Ask next: *“Quote SOFI”* or *“Predict NVTS”* for live price + ML context in this app.\n\n"
+        "---\n\n"
+        "*Not financial advice. Tickers can move above your cap quickly—always verify price and fundamentals.*"
+    )
+
+
+def _format_under_price_screening_inr(cap: float) -> str:
+    cap_disp = f"{cap:,.0f}"
+    return (
+        f"## Stocks under **₹{cap_disp}** per share (India — illustrative)\n\n"
+        "Low **share price** ≠ “cheap” valuation—check **P/E, earnings quality, and debt** before acting.\n\n"
+        "| Stock | Why it sometimes appears in “low price” screens | Risk |\n"
+        "|------|--------------------------------------------------|------|\n"
+        "| **SUZLON.BSE** | Renewable / infra theme; volatile | High |\n"
+        "| **NHPC.BSE** | Utilities / yield angle; often lower nominal price | Medium |\n"
+        "| **PNB.BSE** | Large PSU bank; deep value narratives; asset quality cycles | Medium–High |\n"
+        "| **NMDC.BSE** | Commodities / mining cycle | Medium–High |\n"
+        "| **ITC.BSE** | Consumer + cash generation; often used as a steadier large-cap example | Medium |\n\n"
+        "For **live quotes + ML**, ask: *“Quote ITC.BSE”* or *“Predict NHPC.BSE”*.\n\n"
+        "---\n\n"
+        "*Not financial advice.*"
+    )
+
+
 def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, Any]:
     """Generate AI response to user message using NLP + ML Engine + LLM + live stock data."""
     try:
@@ -552,6 +657,26 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             entities.pop("symbol", None)
             entities["screening_growth_value"] = True
             confidence = max(confidence, 0.85)
+        elif not entities.get("screening_growth_value"):
+            cap_usd = _parse_under_price_screening_cap_usd(message)
+            cap_inr = None if cap_usd is not None else _parse_under_price_screening_cap_inr(message)
+            if cap_usd is not None:
+                intent = "market_advice"
+                entities.pop("symbol", None)
+                entities.pop("amount", None)
+                entities.pop("currency", None)
+                entities["under_price_cap_usd"] = cap_usd
+                if not entities.get("market"):
+                    entities["market"] = "us"
+                confidence = max(confidence, 0.85)
+            elif cap_inr is not None:
+                intent = "market_advice"
+                entities.pop("symbol", None)
+                entities.pop("amount", None)
+                entities.pop("currency", None)
+                entities["under_price_cap_inr"] = cap_inr
+                entities["market"] = "india"
+                confidence = max(confidence, 0.85)
 
         # Fetch real stock data if a symbol was detected (for ALL intents)
         stock_data = None
@@ -593,7 +718,9 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             "financial_planning":  {"default_risk": "moderate", "default_horizon": 60},
             "beginner_guidance":   {"default_risk": "moderate", "default_horizon": 36},
         }
-        if intent in _allocation_intents and portfolio_optimizer and not entities.get("screening_growth_value"):
+        if intent in _allocation_intents and portfolio_optimizer and not entities.get(
+            "screening_growth_value"
+        ) and entities.get("under_price_cap_usd") is None and entities.get("under_price_cap_inr") is None:
             defaults = _allocation_intents[intent]
             amount = entities.get('amount', 10000)
             risk = entities.get('risk_level', defaults["default_risk"])
@@ -775,6 +902,10 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                         or any(k in ml for k in ("india", "indian", "nifty", "sensex", "bse", "nse", "rupee", "inr"))
                     )
                     response_text = _format_growth_value_screening_markdown(india)
+                elif entities.get("under_price_cap_usd") is not None:
+                    response_text = _format_under_price_screening_usd(float(entities["under_price_cap_usd"]))
+                elif entities.get("under_price_cap_inr") is not None:
+                    response_text = _format_under_price_screening_inr(float(entities["under_price_cap_inr"]))
                 elif llm_provider:
                     response_text = llm_provider.generate_response(intent, entities, message)
                 else:
@@ -796,6 +927,20 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                 )
                 sp = "HDFCBANK.BSE" if india_spot else "SOFI"
                 spot = fetch_stock_data(sp)
+                if spot:
+                    stock_data = spot
+            except Exception:
+                pass
+        elif entities.get("under_price_cap_usd") is not None and stock_data is None:
+            try:
+                spot = fetch_stock_data("SOFI")
+                if spot:
+                    stock_data = spot
+            except Exception:
+                pass
+        elif entities.get("under_price_cap_inr") is not None and stock_data is None:
+            try:
+                spot = fetch_stock_data("ITC.BSE")
                 if spot:
                     stock_data = spot
             except Exception:

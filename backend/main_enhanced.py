@@ -263,6 +263,22 @@ def _to_yf_symbol(symbol: str) -> str:
     return symbol
 
 
+def _is_indian_symbol(symbol: str) -> bool:
+    """Check if a symbol belongs to an Indian exchange."""
+    upper = symbol.upper()
+    return upper.endswith('.BSE') or upper.endswith('.NSE')
+
+
+def _currency_symbol(symbol: str) -> str:
+    """Return the currency symbol (₹ or $) for a stock."""
+    return '₹' if _is_indian_symbol(symbol) else '$'
+
+
+def _currency_code(symbol: str) -> str:
+    """Return the currency code (INR or USD) for a stock."""
+    return 'INR' if _is_indian_symbol(symbol) else 'USD'
+
+
 def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
     """Fetch real-time stock data via RapidAPI, with Yahoo Finance and yfinance fallbacks."""
     import requests as req
@@ -293,6 +309,8 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
                             "volume": int(q.get("volume", 0)),
                             "name": q.get("name", symbol),
                             "open": round(float(q.get("open", 0)), 2),
+                            "currency": _currency_code(symbol),
+                            "currencySymbol": _currency_symbol(symbol),
                         }
                 logger.warning(f"RapidAPI returned {resp.status_code} for {symbol} (attempt {attempt+1})")
             except Exception as e:
@@ -345,6 +363,8 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
                     "volume": int(valid_volumes[-1]) if valid_volumes else 0,
                     "name": meta.get("shortName") or meta.get("symbol", symbol),
                     "open": round(float(meta.get("regularMarketPrice", current_price)), 2),
+                    "currency": _currency_code(symbol),
+                    "currencySymbol": _currency_symbol(symbol),
                 }
                 logger.info(f"Stock data fetched via Yahoo Finance v8 API for {symbol}")
                 return result
@@ -380,6 +400,8 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
             "low": round(float(hist['Low'].iloc[-1]), 2),
             "volume": int(hist['Volume'].iloc[-1]),
             "name": symbol,
+            "currency": _currency_code(symbol),
+            "currencySymbol": _currency_symbol(symbol),
         }
 
         try:
@@ -461,8 +483,9 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             amount = entities.get('amount', 10000)  # default $10K if no amount specified
             risk = entities.get('risk_level', 'moderate')
             horizon = entities.get('horizon_months', 12)
+            market = entities.get('market')  # 'india', 'us', or None
             try:
-                ml_results['allocation'] = portfolio_optimizer.recommend_allocation(amount, risk, horizon)
+                ml_results['allocation'] = portfolio_optimizer.recommend_allocation(amount, risk, horizon, market=market)
                 # Run Monte Carlo on the recommended allocation
                 alloc = ml_results['allocation']
                 symbols_alloc = list(alloc['allocations'].keys())
@@ -566,8 +589,9 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                 direction = "up" if change >= 0 else "down"
                 sign = "+" if change >= 0 else ""
                 name = stock_data.get("name", symbol)
+                cs = stock_data.get("currencySymbol", _currency_symbol(symbol))
                 stock_summary = (
-                    f"{name} ({symbol}) is currently trading at ${price:.2f}, "
+                    f"{name} ({symbol}) is currently trading at {cs}{price:,.2f}, "
                     f"{direction} {sign}{change:.2f} ({sign}{change_pct:.2f}%).\n\n"
                 )
                 response_text = stock_summary + response_text
@@ -578,32 +602,33 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             direction = "up" if change >= 0 else "down"
             sign = "+" if change >= 0 else ""
             name = stock_data.get("name", symbol)
+            cs = stock_data.get("currencySymbol", _currency_symbol(symbol))
 
             response_text = (
-                f"{name} ({symbol}) is currently trading at ${price:.2f}, "
+                f"{name} ({symbol}) is currently trading at {cs}{price:,.2f}, "
                 f"{direction} {sign}{change:.2f} ({sign}{change_pct:.2f}%) from the previous close.\n\n"
             )
 
             if stock_data.get("open"):
-                response_text += f"Open: ${stock_data['open']:.2f}\n"
+                response_text += f"Open: {cs}{stock_data['open']:,.2f}\n"
             if stock_data.get("high") and stock_data.get("low"):
-                response_text += f"Day range: ${stock_data['low']:.2f} - ${stock_data['high']:.2f}\n"
+                response_text += f"Day range: {cs}{stock_data['low']:,.2f} - {cs}{stock_data['high']:,.2f}\n"
             if stock_data.get("volume"):
                 response_text += f"Volume: {stock_data['volume']:,}\n"
             if stock_data.get("previousClose"):
-                response_text += f"Previous close: ${stock_data['previousClose']:.2f}\n"
+                response_text += f"Previous close: {cs}{stock_data['previousClose']:,.2f}\n"
             if stock_data.get("fiftyTwoWeekHigh") and stock_data.get("fiftyTwoWeekLow"):
-                response_text += f"52-week range: ${stock_data['fiftyTwoWeekLow']:.2f} - ${stock_data['fiftyTwoWeekHigh']:.2f}\n"
+                response_text += f"52-week range: {cs}{stock_data['fiftyTwoWeekLow']:,.2f} - {cs}{stock_data['fiftyTwoWeekHigh']:,.2f}\n"
             if stock_data.get("peRatio"):
                 response_text += f"P/E Ratio: {stock_data['peRatio']:.2f}\n"
             if stock_data.get("marketCap"):
                 cap = stock_data["marketCap"]
                 if cap >= 1e12:
-                    response_text += f"Market Cap: ${cap/1e12:.2f}T\n"
+                    response_text += f"Market Cap: {cs}{cap/1e12:.2f}T\n"
                 elif cap >= 1e9:
-                    response_text += f"Market Cap: ${cap/1e9:.2f}B\n"
+                    response_text += f"Market Cap: {cs}{cap/1e9:.2f}B\n"
                 else:
-                    response_text += f"Market Cap: ${cap/1e6:.2f}M\n"
+                    response_text += f"Market Cap: {cs}{cap/1e6:.2f}M\n"
 
             response_text += "\nNote: This is not financial advice. Always do your own research before making investment decisions."
         elif portfolio_response:
@@ -624,7 +649,7 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                 if llm_provider:
                     response_text = llm_provider.generate_response(intent, entities, message)
                 else:
-                    response_text = handle_market_advice(message)
+                    response_text = handle_market_advice(message, entities)
             elif llm_provider:
                 response_text = llm_provider.generate_response(intent, entities, message)
             else:
@@ -669,51 +694,118 @@ def handle_general_question(message: str) -> str:
     return "I'm here to help with stock analysis and predictions. What would you like to know?"
 
 
-def handle_market_advice(message: str) -> str:
-    """Handle broad market and investment advice queries."""
+def handle_market_advice(message: str, entities: Optional[Dict] = None) -> str:
+    """Handle broad market and investment advice queries with market-specific recommendations."""
     message_lower = message.lower()
+    entities = entities or {}
+    market = entities.get('market')
+    amount = entities.get('amount')
+    cs = '₹' if market == 'india' else '$'
 
-    # Top stocks / best stocks queries
+    # Detect India context from message if not already detected
+    if not market:
+        india_keywords = ['india', 'indian', 'nifty', 'sensex', 'bse', 'nse', 'rupee', 'inr']
+        if any(kw in message_lower for kw in india_keywords):
+            market = 'india'
+            cs = '₹'
+
+    # ---- INDIA-SPECIFIC RESPONSES ---- #
+    if market == 'india':
+        if re.search(r"top\s*\d+\s*stocks?|best\s*stocks?", message_lower):
+            return (
+                "## Top Indian Stocks to Watch\n\n"
+                "Here are widely-followed Indian stocks across key sectors:\n\n"
+                "**IT/Technology:** INFY.BSE (Infosys), TCS.BSE (TCS), WIPRO.BSE (Wipro), HCLTECH.BSE (HCL Tech)\n\n"
+                "**Banking & Finance:** HDFCBANK.BSE (HDFC Bank), ICICIBANK.BSE (ICICI Bank), SBIN.BSE (SBI), KOTAKBANK.BSE (Kotak), BAJFINANCE.BSE (Bajaj Finance)\n\n"
+                "**Consumer:** HINDUNILVR.BSE (HUL), ITC.BSE (ITC), TITAN.BSE (Titan), NESTLEIND.BSE (Nestle India)\n\n"
+                "**Energy & Infra:** RELIANCE.BSE (Reliance), LT.BSE (L&T), NTPC.BSE (NTPC), POWERGRID.BSE (Power Grid)\n\n"
+                "**Auto:** MARUTI.BSE (Maruti Suzuki), TATAMOTORS.BSE (Tata Motors)\n\n"
+                "**Pharma:** SUNPHARMA.BSE (Sun Pharma), DRREDDY.BSE (Dr Reddy's), CIPLA.BSE (Cipla)\n\n"
+                "To get live prices and analysis, ask me: *\"Predict INFY.BSE\"* or *\"Infosys stock price\"*\n\n"
+                "**Disclaimer:** This is not financial advice. Always do your own research."
+            )
+
+        if amount or re.search(r"invest|where.*(?:invest|put)|what.*(?:should|would).*(?:invest|buy)", message_lower):
+            amt = amount or 10000
+            return (
+                f"## Indian Market Investment Guide ({cs}{amt:,.0f})\n\n"
+                f"Here's a suggested allocation of {cs}{amt:,.0f} across Indian stocks:\n\n"
+                f"### Conservative (Lower Risk)\n"
+                f"- **HDFCBANK.BSE** (HDFC Bank): {cs}{amt*0.20:,.0f} - India's largest private bank\n"
+                f"- **SBIN.BSE** (SBI): {cs}{amt*0.15:,.0f} - India's largest public bank\n"
+                f"- **ITC.BSE** (ITC): {cs}{amt*0.15:,.0f} - Diversified conglomerate, strong dividends\n"
+                f"- **HINDUNILVR.BSE** (HUL): {cs}{amt*0.15:,.0f} - FMCG leader\n"
+                f"- **POWERGRID.BSE** (Power Grid): {cs}{amt*0.10:,.0f} - Stable utility stock\n\n"
+                f"### Growth (Higher Risk, Higher Potential)\n"
+                f"- **INFY.BSE** (Infosys): {cs}{amt*0.20:,.0f} - IT sector leader\n"
+                f"- **RELIANCE.BSE** (Reliance): {cs}{amt*0.20:,.0f} - India's largest company\n"
+                f"- **BAJFINANCE.BSE** (Bajaj Finance): {cs}{amt*0.15:,.0f} - Leading NBFC\n"
+                f"- **TITAN.BSE** (Titan): {cs}{amt*0.15:,.0f} - Premium consumer brand\n"
+                f"- **ICICIBANK.BSE** (ICICI Bank): {cs}{amt*0.15:,.0f} - Strong private bank\n\n"
+                f"### General Tips for Indian Market\n"
+                f"- Consider Nifty 50 index funds for broad diversification\n"
+                f"- SIP (Systematic Investment Plan) reduces timing risk\n"
+                f"- Banking and IT sectors are the largest in Indian markets\n\n"
+                f"Ask me about any specific Indian stock for live prices and AI predictions!\n\n"
+                f"**Disclaimer:** This is not financial advice. Always do your own research."
+            )
+
+        return (
+            "## Indian Market Investment Insights\n\n"
+            "I can help you with Indian stock analysis:\n\n"
+            "- **Top Indian stocks** - Ask: *\"Best Indian stocks to buy\"*\n"
+            "- **Investment allocation** - Ask: *\"Invest ₹50,000 in India\"*\n"
+            "- **Specific stock analysis** - Ask: *\"Predict Infosys stock\"* or *\"Reliance stock price\"*\n\n"
+            "**Key Indian Indices:** Nifty 50, Sensex\n"
+            "**Major Sectors:** Banking, IT, FMCG, Pharma, Energy\n\n"
+            "**Disclaimer:** This is not financial advice. Always do your own research."
+        )
+
+    # ---- US / GLOBAL RESPONSES ---- #
     if re.search(r"top\s*\d+\s*stocks?|best\s*stocks?", message_lower):
         return (
-            "## Top Stocks to Watch\n\n"
-            "Here are some widely-followed stocks across key sectors:\n\n"
+            "## Top US Stocks to Watch\n\n"
+            "Here are widely-followed stocks across key sectors:\n\n"
             "**Technology:** AAPL (Apple), MSFT (Microsoft), NVDA (NVIDIA), GOOGL (Alphabet), META (Meta)\n\n"
             "**Consumer:** AMZN (Amazon), TSLA (Tesla), WMT (Walmart), COST (Costco)\n\n"
             "**Healthcare:** UNH (UnitedHealth), JNJ (Johnson & Johnson), ABBV (AbbVie)\n\n"
             "**Finance:** JPM (JPMorgan), V (Visa), MA (Mastercard)\n\n"
             "**ETFs for Diversification:** SPY (S&P 500), QQQ (Nasdaq-100), VTI (Total Market), VGT (Tech Sector)\n\n"
             "To get live prices and analysis for any of these, ask me: *\"Predict AAPL stock\"* or *\"Technical analysis of NVDA\"*\n\n"
-            "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor before making investment decisions."
+            "**Disclaimer:** This is not financial advice. Always do your own research."
         )
 
-    # Investment amount queries
-    if re.search(r"invest\s*\$?\d+|where.*(?:invest|put.*money)|what.*(?:should|would).*(?:invest|buy)", message_lower):
+    if amount or re.search(r"invest|where.*(?:invest|put.*money)|what.*(?:should|would).*(?:invest|buy)", message_lower):
+        amt = amount or 10000
         return (
-            "## Investment Strategy Guide\n\n"
-            "Here are common approaches based on different goals:\n\n"
-            "### For Beginners / Lower Risk\n"
-            "- **Index Funds / ETFs:** SPY (S&P 500), VTI (Total Market) - broad diversification with low fees\n"
-            "- **Bond ETFs:** BND (Total Bond) - lower volatility\n\n"
-            "### For Growth\n"
-            "- **Tech Leaders:** AAPL, MSFT, NVDA, GOOGL - established companies with growth potential\n"
-            "- **Growth ETFs:** QQQ (Nasdaq-100), VGT (Tech Sector)\n\n"
-            "### For Income / Dividends\n"
-            "- **Dividend Stocks:** JNJ, KO, PEP, PG - consistent dividend payers\n"
-            "- **Dividend ETFs:** VYM, SCHD - diversified dividend income\n\n"
-            "### Hedge Funds & Alternatives\n"
-            "- Most hedge funds require accredited investor status ($200K+ income or $1M+ net worth)\n"
-            "- **Accessible alternatives:** BTAL (anti-beta), DBMF (managed futures), QMOM (momentum)\n"
-            "- **REITs:** VNQ (real estate) - real estate exposure without direct ownership\n\n"
-            "### General Tips\n"
-            "- Diversify across sectors and asset classes\n"
-            "- Consider your risk tolerance and time horizon\n"
-            "- Dollar-cost averaging reduces timing risk\n\n"
-            "Ask me about any specific stock for live prices and AI predictions!\n\n"
-            "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor."
+            f"## US Market Investment Guide (${amt:,.0f})\n\n"
+            f"Here's a suggested allocation of ${amt:,.0f}:\n\n"
+            f"### For Beginners / Lower Risk\n"
+            f"- **SPY** (S&P 500 ETF): ${amt*0.30:,.0f} - Broad market diversification\n"
+            f"- **BND** (Total Bond ETF): ${amt*0.20:,.0f} - Lower volatility, income\n"
+            f"- **VTI** (Total Market ETF): ${amt*0.20:,.0f} - Full US market exposure\n"
+            f"- **GLD** (Gold ETF): ${amt*0.10:,.0f} - Inflation hedge\n\n"
+            f"### For Growth\n"
+            f"- **AAPL** (Apple): ${amt*0.20:,.0f} - Largest tech company\n"
+            f"- **MSFT** (Microsoft): ${amt*0.20:,.0f} - Cloud & AI leader\n"
+            f"- **NVDA** (NVIDIA): ${amt*0.15:,.0f} - AI/GPU leader\n"
+            f"- **GOOGL** (Alphabet): ${amt*0.15:,.0f} - Search & cloud\n"
+            f"- **QQQ** (Nasdaq-100 ETF): ${amt*0.15:,.0f} - Tech-heavy index\n\n"
+            f"### For Income / Dividends\n"
+            f"- **SCHD** (Dividend ETF): ${amt*0.25:,.0f} - High-quality dividends\n"
+            f"- **JNJ** (Johnson & Johnson): ${amt*0.20:,.0f} - Healthcare dividend king\n"
+            f"- **KO** (Coca-Cola): ${amt*0.15:,.0f} - Consistent dividend payer\n\n"
+            f"### Hedge Fund Alternatives\n"
+            f"- **DBMF** (Managed Futures): ${amt*0.15:,.0f} - Hedge fund strategy ETF\n"
+            f"- **BTAL** (Anti-Beta): ${amt*0.10:,.0f} - Market-neutral strategy\n\n"
+            f"### General Tips\n"
+            f"- Diversify across sectors and asset classes\n"
+            f"- Dollar-cost averaging reduces timing risk\n"
+            f"- Consider your risk tolerance and time horizon\n\n"
+            f"Ask me about any specific stock for live prices and AI predictions!\n\n"
+            f"**Disclaimer:** This is not financial advice. Always do your own research."
         )
 
-    # Hedge fund queries
     if re.search(r"hedge\s*fund|mutual\s*fund", message_lower):
         return (
             "## Hedge Funds & Mutual Funds\n\n"
@@ -735,10 +827,9 @@ def handle_market_advice(message: str) -> str:
             "- **VTI:** Total US stock market\n"
             "- **VXUS:** International stocks\n\n"
             "Ask me about any specific stock or ETF for live prices and analysis!\n\n"
-            "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor."
+            "**Disclaimer:** This is not financial advice. Always do your own research."
         )
 
-    # Sector / market trend queries
     if re.search(r"sector|market.*(?:trend|outlook)|(?:current|today).*market|s.?p\s*500|nasdaq|dow", message_lower):
         return (
             "## Market Overview & Sector Insights\n\n"
@@ -754,20 +845,22 @@ def handle_market_advice(message: str) -> str:
             "- **Energy (XLE):** XOM, CVX\n"
             "- **Consumer Discretionary (XLY):** AMZN, TSLA\n\n"
             "For live prices on any of these, ask me: *\"Predict SPY\"* or *\"Technical analysis of QQQ\"*\n\n"
-            "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor."
+            "**Disclaimer:** This is not financial advice. Always do your own research."
         )
 
     # Default market advice response
     return (
         "## Market & Investment Insights\n\n"
         "I can help you with:\n\n"
-        "- **Top stocks by sector** - Ask: *\"What are the top 10 stocks?\"*\n"
-        "- **Investment strategies** - Ask: *\"If I have $500 to invest, what should I buy?\"*\n"
+        "- **Top US stocks** - Ask: *\"What are the top 10 stocks?\"*\n"
+        "- **Indian market** - Ask: *\"Best Indian stocks to invest in\"*\n"
+        "- **Investment allocation** - Ask: *\"If I have $500 to invest, what should I buy?\"*\n"
+        "- **Indian allocation** - Ask: *\"Invest ₹50,000 in Indian stocks\"*\n"
         "- **Hedge funds & ETFs** - Ask: *\"Tell me about hedge fund alternatives\"*\n"
         "- **Sector analysis** - Ask: *\"Which sectors are performing best?\"*\n"
-        "- **Specific stock analysis** - Ask: *\"Predict AAPL stock\"* or *\"Technical analysis of TSLA\"*\n\n"
+        "- **Specific stock analysis** - Ask: *\"Predict AAPL stock\"* or *\"Infosys stock price\"*\n\n"
         "For the most detailed analysis, ask about a specific stock symbol and I'll fetch live data with AI predictions.\n\n"
-        "**Disclaimer:** This is not financial advice. Always do your own research and consider consulting a financial advisor."
+        "**Disclaimer:** This is not financial advice. Always do your own research."
     )
 
 

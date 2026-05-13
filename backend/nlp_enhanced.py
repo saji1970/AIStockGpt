@@ -102,6 +102,12 @@ INTENT_REFERENCES = {
         "crypto investment advice",
         "how to diversify my investments",
         "best options in current market",
+        "best Indian stocks to invest in",
+        "invest 50000 rupees in India",
+        "top Nifty 50 stocks to buy",
+        "best stocks in Indian market",
+        "where to invest in Indian market",
+        "invest in India",
     ],
     "general_question": [
         "hello how are you",
@@ -147,7 +153,7 @@ REGEX_INTENT_PATTERNS = {
     ],
     "market_advice": [
         r"top\s*\d+\s*stocks?", r"best\s*stocks?", r"best.*(?:invest|option|pick|buy)",
-        r"invest\s*\$?\d+", r"where.*(?:invest|put.*money)",
+        r"invest\s*(?:\$|₹|rs\.?)?\s*\d+", r"where.*(?:invest|put.*money)",
         r"hedge\s*fund", r"mutual\s*fund", r"etf.*(?:recommend|best|top|buy)",
         r"(?:recommend|suggest).*(?:stock|invest|fund|etf|portfolio)",
         r"good.*(?:stock|invest|fund|etf).*(?:buy|now|today|current)",
@@ -158,6 +164,8 @@ REGEX_INTENT_PATTERNS = {
         r"diversif", r"sector.*(?:perform|best|top|hot)", r"asset.*allocation",
         r"(?:current|today).*market", r"index.*fund",
         r"s.?p\s*500", r"nasdaq|dow\s*jones", r"crypto.*(?:invest|buy|best)",
+        r"(?:india|indian|nifty|sensex|bse|nse).*(?:invest|stock|buy|best)",
+        r"(?:invest|stock|buy|best).*(?:india|indian|nifty|sensex|bse|nse)",
     ],
     "general_question": [
         r"help", r"what.*can.*you.*do", r"capabilities",
@@ -194,6 +202,75 @@ STOCK_SYMBOLS = [
     'TATASTEEL.BSE', 'HINDALCO.BSE', 'JSWSTEEL.BSE',
     'BHARTIARTL.BSE', 'ADANIENT.BSE', 'ADANIPORTS.BSE',
 ]
+
+# Company name to symbol mapping (case-insensitive lookup)
+COMPANY_NAME_MAP = {
+    # US Companies
+    'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL', 'alphabet': 'GOOGL',
+    'amazon': 'AMZN', 'tesla': 'TSLA', 'meta': 'META', 'facebook': 'META',
+    'nvidia': 'NVDA', 'netflix': 'NFLX', 'adobe': 'ADBE', 'salesforce': 'CRM',
+    'oracle': 'ORCL', 'intel': 'INTC', 'amd': 'AMD', 'ibm': 'IBM',
+    'cisco': 'CSCO', 'qualcomm': 'QCOM', 'broadcom': 'AVGO',
+    'paypal': 'PYPL', 'square': 'SQ', 'block': 'SQ',
+    'visa': 'V', 'mastercard': 'MA', 'jpmorgan': 'JPM', 'jp morgan': 'JPM',
+    'bank of america': 'BAC', 'wells fargo': 'WFC', 'goldman sachs': 'GS',
+    'morgan stanley': 'MS', 'disney': 'DIS', 'nike': 'NKE',
+    'starbucks': 'SBUX', 'mcdonalds': 'MCD', "mcdonald's": 'MCD',
+    'coca cola': 'KO', 'coca-cola': 'KO', 'pepsi': 'PEP', 'pepsico': 'PEP',
+    'walmart': 'WMT', 'target': 'TGT', 'home depot': 'HD', 'costco': 'COST',
+    'johnson & johnson': 'JNJ', 'johnson and johnson': 'JNJ',
+    'pfizer': 'PFE', 'merck': 'MRK', 'unitedhealth': 'UNH',
+    'boeing': 'BA', 'caterpillar': 'CAT', 'general electric': 'GE',
+    'exxon': 'XOM', 'exxon mobil': 'XOM', 'exxonmobil': 'XOM', 'chevron': 'CVX',
+    'procter & gamble': 'PG', 'procter and gamble': 'PG', 'p&g': 'PG',
+    # India - BSE Companies
+    'infosys': 'INFY.BSE', 'infy': 'INFY.BSE',
+    'tcs': 'TCS.BSE', 'tata consultancy': 'TCS.BSE', 'tata consultancy services': 'TCS.BSE',
+    'wipro': 'WIPRO.BSE',
+    'hcl tech': 'HCLTECH.BSE', 'hcl technologies': 'HCLTECH.BSE', 'hcltech': 'HCLTECH.BSE',
+    'tech mahindra': 'TECHM.BSE',
+    'hdfc bank': 'HDFCBANK.BSE', 'hdfc': 'HDFCBANK.BSE', 'hdfcbank': 'HDFCBANK.BSE',
+    'icici bank': 'ICICIBANK.BSE', 'icici': 'ICICIBANK.BSE',
+    'sbi': 'SBIN.BSE', 'state bank': 'SBIN.BSE', 'state bank of india': 'SBIN.BSE',
+    'kotak bank': 'KOTAKBANK.BSE', 'kotak mahindra': 'KOTAKBANK.BSE', 'kotak': 'KOTAKBANK.BSE',
+    'axis bank': 'AXISBANK.BSE', 'axis': 'AXISBANK.BSE',
+    'bajaj finance': 'BAJFINANCE.BSE', 'bajfinance': 'BAJFINANCE.BSE',
+    'bajaj finserv': 'BAJAJFINSV.BSE',
+    'indusind bank': 'INDUSINDBK.BSE', 'indusind': 'INDUSINDBK.BSE',
+    'hindustan unilever': 'HINDUNILVR.BSE', 'hul': 'HINDUNILVR.BSE',
+    'itc': 'ITC.BSE',
+    'nestle india': 'NESTLEIND.BSE', 'nestle': 'NESTLEIND.BSE',
+    'britannia': 'BRITANNIA.BSE',
+    'tata consumer': 'TATACONSUM.BSE',
+    'asian paints': 'ASIANPAINT.BSE', 'asian paint': 'ASIANPAINT.BSE',
+    'titan': 'TITAN.BSE',
+    'reliance': 'RELIANCE.BSE', 'reliance industries': 'RELIANCE.BSE', 'ril': 'RELIANCE.BSE',
+    'larsen & toubro': 'LT.BSE', 'l&t': 'LT.BSE', 'larsen and toubro': 'LT.BSE',
+    'maruti': 'MARUTI.BSE', 'maruti suzuki': 'MARUTI.BSE',
+    'tata motors': 'TATAMOTORS.BSE',
+    'eicher motors': 'EICHERMOT.BSE', 'royal enfield': 'EICHERMOT.BSE',
+    'ultratech cement': 'ULTRACEMCO.BSE', 'ultratech': 'ULTRACEMCO.BSE',
+    'grasim': 'GRASIM.BSE',
+    'sun pharma': 'SUNPHARMA.BSE', 'sun pharmaceutical': 'SUNPHARMA.BSE',
+    'dr reddy': 'DRREDDY.BSE', "dr reddy's": 'DRREDDY.BSE', 'dr reddys': 'DRREDDY.BSE',
+    'cipla': 'CIPLA.BSE',
+    "divi's lab": 'DIVISLAB.BSE', 'divis lab': 'DIVISLAB.BSE',
+    'apollo hospitals': 'APOLLOHOSP.BSE', 'apollo': 'APOLLOHOSP.BSE',
+    'ongc': 'ONGC.BSE', 'ntpc': 'NTPC.BSE',
+    'power grid': 'POWERGRID.BSE', 'powergrid': 'POWERGRID.BSE',
+    'bpcl': 'BPCL.BSE', 'coal india': 'COALINDIA.BSE',
+    'tata steel': 'TATASTEEL.BSE',
+    'hindalco': 'HINDALCO.BSE',
+    'jsw steel': 'JSWSTEEL.BSE',
+    'bharti airtel': 'BHARTIARTL.BSE', 'airtel': 'BHARTIARTL.BSE',
+    'adani enterprises': 'ADANIENT.BSE', 'adani': 'ADANIENT.BSE',
+    'adani ports': 'ADANIPORTS.BSE',
+}
+
+
+def _is_indian_symbol(symbol: str) -> bool:
+    """Check if a symbol belongs to an Indian exchange."""
+    return symbol.upper().endswith('.BSE') or symbol.upper().endswith('.NSE')
 
 
 class EnhancedNLPProcessor:
@@ -319,7 +396,7 @@ class EnhancedNLPProcessor:
         """Extract entities from the message using regex."""
         entities = {}
 
-        # Extract stock symbols
+        # Extract stock symbols (including company name resolution)
         symbols = self._extract_stock_symbols(normalized, original)
         if symbols:
             entities["symbol"] = symbols[0]
@@ -334,10 +411,21 @@ class EnhancedNLPProcessor:
         if analysis_types:
             entities["analysis_type"] = analysis_types[0]
 
-        # Extract dollar amount
-        amount = self._extract_dollar_amount(normalized)
+        # Extract market context (india vs us)
+        market = self._extract_market(normalized)
+        if market:
+            entities["market"] = market
+        elif entities.get("symbol") and _is_indian_symbol(entities["symbol"]):
+            entities["market"] = "india"
+
+        # Extract amount (supports both USD and INR)
+        amount = self._extract_amount(normalized)
         if amount is not None:
-            entities["amount"] = amount
+            entities["amount"] = amount["value"]
+            if amount.get("currency"):
+                entities["currency"] = amount["currency"]
+                if amount["currency"] == "INR" and not entities.get("market"):
+                    entities["market"] = "india"
 
         # Extract risk level
         risk_level = self._extract_risk_level(normalized)
@@ -352,10 +440,20 @@ class EnhancedNLPProcessor:
         return entities
 
     def _extract_stock_symbols(self, normalized: str, original: str) -> List[str]:
-        """Extract stock symbols from the message."""
+        """Extract stock symbols from the message, including company name resolution."""
         found = []
 
-        # Check known symbols in original (case-sensitive)
+        # 1. Check company name mapping first (e.g., "Infosys" -> "INFY.BSE")
+        msg_lower = original.lower()
+        # Sort by length descending so multi-word names match first
+        for name in sorted(COMPANY_NAME_MAP.keys(), key=len, reverse=True):
+            if name in msg_lower:
+                sym = COMPANY_NAME_MAP[name]
+                if sym not in found:
+                    found.append(sym)
+                break  # Use first (longest) match
+
+        # 2. Check known symbols in original (case-sensitive)
         words = original.upper().split()
         for word in words:
             # Preserve dots for exchange suffixes like .BSE / .NSE
@@ -370,7 +468,7 @@ class EnhancedNLPProcessor:
                         found.append(sym)
                         break
 
-        # Pattern-based extraction from original message (US symbols)
+        # 3. Pattern-based extraction from original message (US symbols)
         symbol_patterns = [
             r"([A-Z]{1,10}(?:\.[A-Z]{1,4})?)\s+stock",
             r"stock\s+([A-Z]{1,10}(?:\.[A-Z]{1,4})?)",
@@ -406,23 +504,72 @@ class EnhancedNLPProcessor:
         keywords = ["technical", "fundamental", "sensitivity", "prediction", "forecast", "trend"]
         return [k for k in keywords if k in message]
 
-    def _extract_dollar_amount(self, message: str) -> Optional[float]:
-        """Extract dollar amounts: '$500', '500 dollars', '500 usd', 'invest 500'."""
-        patterns = [
-            r'\$\s*([\d,]+(?:\.\d{1,2})?)',
-            r'([\d,]+(?:\.\d{1,2})?)\s*(?:dollars?|usd|bucks)',
-            r'invest\s*\$?\s*([\d,]+(?:\.\d{1,2})?)',
-            r'have\s*\$?\s*([\d,]+(?:\.\d{1,2})?)',
-            r'put\s*\$?\s*([\d,]+(?:\.\d{1,2})?)',
-            r'([\d,]+(?:\.\d{1,2})?)\s*(?:to invest|to put)',
+    def _extract_amount(self, message: str) -> Optional[Dict[str, Any]]:
+        """Extract monetary amounts with currency detection.
+
+        Supports: '$500', '500 dollars', '500 usd', '₹500', '500 rupees',
+                  '500 inr', 'invest 500', 'invest Rs 500', 'invest Rs.500'
+        Returns: {'value': float, 'currency': 'USD'|'INR'|None}
+        """
+        # INR-specific patterns (check first to avoid fallback to generic)
+        inr_patterns = [
+            (r'(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d{1,2})?)', 'INR'),
+            (r'([\d,]+(?:\.\d{1,2})?)\s*(?:rupees?|inr|rs)', 'INR'),
         ]
-        for pattern in patterns:
+        for pattern, currency in inr_patterns:
             match = re.search(pattern, message, re.IGNORECASE)
             if match:
                 try:
-                    return float(match.group(1).replace(',', ''))
+                    return {'value': float(match.group(1).replace(',', '')), 'currency': currency}
                 except ValueError:
                     continue
+
+        # USD-specific patterns
+        usd_patterns = [
+            (r'\$\s*([\d,]+(?:\.\d{1,2})?)', 'USD'),
+            (r'([\d,]+(?:\.\d{1,2})?)\s*(?:dollars?|usd|bucks)', 'USD'),
+        ]
+        for pattern, currency in usd_patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                try:
+                    return {'value': float(match.group(1).replace(',', '')), 'currency': currency}
+                except ValueError:
+                    continue
+
+        # Generic amount patterns (no currency detected)
+        generic_patterns = [
+            r'invest\s*(?:\$|₹|rs\.?)?\s*([\d,]+(?:\.\d{1,2})?)',
+            r'have\s*(?:\$|₹|rs\.?)?\s*([\d,]+(?:\.\d{1,2})?)',
+            r'put\s*(?:\$|₹|rs\.?)?\s*([\d,]+(?:\.\d{1,2})?)',
+            r'([\d,]+(?:\.\d{1,2})?)\s*(?:to invest|to put)',
+        ]
+        for pattern in generic_patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                try:
+                    return {'value': float(match.group(1).replace(',', '')), 'currency': None}
+                except ValueError:
+                    continue
+        return None
+
+    def _extract_market(self, message: str) -> Optional[str]:
+        """Detect target market (india or us) from the message."""
+        india_keywords = [
+            'india', 'indian', 'nifty', 'sensex', 'bse', 'nse',
+            'rupee', 'rupees', 'inr', '₹', ' rs ', ' rs.',
+            'mumbai', 'dalal street',
+        ]
+        us_keywords = [
+            ' us ', ' usa ', 'united states', 'american', 'wall street',
+            'nasdaq', 'nyse', 's&p', 's p 500', 'dow jones',
+        ]
+        for kw in india_keywords:
+            if kw in message:
+                return 'india'
+        for kw in us_keywords:
+            if kw in message:
+                return 'us'
         return None
 
     def _extract_risk_level(self, message: str) -> Optional[str]:

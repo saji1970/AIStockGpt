@@ -16,6 +16,8 @@ interface StockData {
   peRatio?: number;
   fiftyTwoWeekHigh?: number;
   fiftyTwoWeekLow?: number;
+  currency?: string;
+  currencySymbol?: string;
 }
 
 interface Props {
@@ -25,6 +27,7 @@ interface Props {
 export default function StockCard({data}: Props) {
   const isPositive = (data.change ?? 0) >= 0;
   const changeColor = isPositive ? '#10b981' : '#ef4444';
+  const cs = data.currencySymbol || (data.symbol?.endsWith('.BSE') || data.symbol?.endsWith('.NSE') ? '₹' : '$');
 
   const formatVolume = (vol: number) => {
     if (vol >= 1e9) return `${(vol / 1e9).toFixed(2)}B`;
@@ -34,10 +37,10 @@ export default function StockCard({data}: Props) {
   };
 
   const formatMarketCap = (cap: number) => {
-    if (cap >= 1e12) return `$${(cap / 1e12).toFixed(2)}T`;
-    if (cap >= 1e9) return `$${(cap / 1e9).toFixed(2)}B`;
-    if (cap >= 1e6) return `$${(cap / 1e6).toFixed(2)}M`;
-    return `$${cap}`;
+    if (cap >= 1e12) return `${cs}${(cap / 1e12).toFixed(2)}T`;
+    if (cap >= 1e9) return `${cs}${(cap / 1e9).toFixed(2)}B`;
+    if (cap >= 1e6) return `${cs}${(cap / 1e6).toFixed(2)}M`;
+    return `${cs}${cap}`;
   };
 
   return (
@@ -57,7 +60,7 @@ export default function StockCard({data}: Props) {
 
       {/* Price */}
       <View style={styles.priceSection}>
-        <Text style={styles.price}>${(data.price ?? 0).toFixed(2)}</Text>
+        <Text style={styles.price}>{cs}{(data.price ?? 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
         <Text style={[styles.priceChange, {color: changeColor}]}>
           {isPositive ? '+' : ''}{(data.change ?? 0).toFixed(2)}
         </Text>
@@ -68,19 +71,19 @@ export default function StockCard({data}: Props) {
         {data.open ? (
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Open</Text>
-            <Text style={styles.detailValue}>${data.open.toFixed(2)}</Text>
+            <Text style={styles.detailValue}>{cs}{data.open.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
           </View>
         ) : null}
         {data.high && data.low ? (
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Day Range</Text>
-            <Text style={styles.detailValue}>${data.low.toFixed(2)} - ${data.high.toFixed(2)}</Text>
+            <Text style={styles.detailValue}>{cs}{data.low.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} - {cs}{data.high.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
           </View>
         ) : null}
         {data.previousClose ? (
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Prev Close</Text>
-            <Text style={styles.detailValue}>${data.previousClose.toFixed(2)}</Text>
+            <Text style={styles.detailValue}>{cs}{data.previousClose.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
           </View>
         ) : null}
         {data.volume ? (

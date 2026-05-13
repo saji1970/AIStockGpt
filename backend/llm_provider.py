@@ -100,13 +100,18 @@ class LLMProvider:
         analysis_type = entities.get("analysis_type", "")
 
         system_context = (
-            "You are AI Stock GPT, an intelligent stock market analysis assistant "
+            "You are AI Stock GPT, an advanced AI investment advisor and portfolio strategist "
             "powered by XGBoost ML models, Monte Carlo simulations, and FinBERT sentiment analysis. "
-            "You provide helpful, accurate, and concise financial analysis. "
-            "When ML model results are provided, always reference the key numbers "
+            "You behave like an experienced wealth management advisor: you explain reasoning, "
+            "evaluate risk, discuss diversification, and think long-term. "
+            "Always include specific ticker symbols with company names (e.g., AAPL (Apple)). "
+            "For Indian stocks, use ₹ for prices. For US stocks, use $. "
+            "When recommending allocations, always include specific amounts per stock/ETF. "
+            "When ML model results are provided, reference the key numbers "
             "(direction, probability, confidence, indicators) in your response. "
+            "Discuss risks and tradeoffs. Never guarantee returns or encourage speculation. "
             "Always include a disclaimer that this is not financial advice. "
-            "Keep responses under 300 words."
+            "Keep responses under 400 words."
         )
 
         intent_context = {
@@ -138,8 +143,12 @@ class LLMProvider:
                 "The user is asking for broad market or investment advice. "
                 "Provide helpful guidance on top stocks, ETFs, sectors, hedge funds, "
                 "mutual funds, index funds, diversification strategies, and asset allocation. "
-                "Include specific ticker symbols and ETFs when relevant. "
-                "Cover different risk levels and investment goals."
+                "Include specific ticker symbols (with company names) and ETFs when relevant. "
+                "Cover different risk levels and investment goals. "
+                "When allocation data is provided, always include the SPECIFIC amount per stock "
+                "(e.g., 'Invest $200 in AAPL (Apple)' or 'Invest ₹10,000 in INFY.BSE (Infosys)'). "
+                "Use ₹ for Indian stocks (.BSE/.NSE) and $ for US stocks. "
+                "If the user asked about India, only recommend Indian stocks."
             ),
             "market_news": (
                 "The user is asking about market news and trends. "
@@ -289,16 +298,15 @@ class LLMProvider:
                 "diversification recommendations."
             ),
             "market_advice": (
-                "Here are some popular investment options across different categories:\n\n"
-                "**Top Large-Cap Stocks:** AAPL, MSFT, NVDA, GOOGL, AMZN, META\n"
-                "**Dividend Stocks:** JNJ, KO, PEP, PG, VZ\n"
+                "Here are popular investment options with suggested allocations:\n\n"
+                "**Top Large-Cap Stocks:** AAPL (Apple), MSFT (Microsoft), NVDA (NVIDIA), GOOGL (Alphabet), AMZN (Amazon)\n"
+                "**Dividend Stocks:** JNJ (Johnson & Johnson), KO (Coca-Cola), PEP (PepsiCo), PG (Procter & Gamble)\n"
                 "**Index ETFs:** SPY (S&P 500), QQQ (Nasdaq-100), VTI (Total Market)\n"
                 "**Sector ETFs:** XLK (Tech), XLV (Healthcare), XLF (Financials)\n"
-                "**Hedge Fund Alternatives:** DBMF, BTAL, MNA\n"
-                "**Bond ETFs:** BND, AGG for lower risk\n\n"
-                "For beginners, diversified index funds like SPY or VTI are often recommended "
-                "as a starting point. For specific stock analysis with live prices, "
-                "ask me about any symbol!\n\n"
+                "**Hedge Fund Alternatives:** DBMF (Managed Futures), BTAL (Anti-Beta), MNA (Merger Arbitrage)\n"
+                "**Bond ETFs:** BND (Total Bond), AGG (Aggregate Bond) for lower risk\n\n"
+                "**Indian Market:** INFY.BSE (Infosys), TCS.BSE (TCS), HDFCBANK.BSE (HDFC Bank), RELIANCE.BSE (Reliance)\n\n"
+                "For specific allocation advice, try: *\"Invest $500 in US stocks\"* or *\"Invest ₹50,000 in Indian stocks\"*\n\n"
                 "Note: This is not financial advice. Always do your own research."
             ),
             "market_news": (
@@ -346,11 +354,16 @@ class LLMProvider:
         if ml_results.get('allocation'):
             alloc = ml_results['allocation']
             risk = alloc.get('risk_level', 'moderate')
-            lines.append(f"\n**Recommended Allocation ({risk})**\n")
+            alloc_market = alloc.get('market', 'global')
+            cs = alloc.get('currency_symbol', '$')
+            market_label = {'india': 'Indian Market', 'us': 'US Market', 'global': 'Global'}.get(alloc_market, 'Global')
+            lines.append(f"\n**Recommended Allocation - {market_label} ({risk})**\n")
             for sym, info in alloc.get('allocations', {}).items():
                 w = info.get('weight', 0)
                 amt = info.get('amount', 0)
-                lines.append(f"- **{sym}**: {w:.0%} (${amt:,.0f})")
+                # Use ₹ for Indian symbols, $ for US
+                sym_cs = '₹' if (sym.endswith('.BSE') or sym.endswith('.NSE')) else '$'
+                lines.append(f"- **{sym}**: {w:.0%} — Invest **{sym_cs}{amt:,.0f}**")
 
             ret_range = alloc.get('expected_return_range', {})
             if ret_range:
@@ -358,14 +371,18 @@ class LLMProvider:
 
         if ml_results.get('forecast'):
             fc = ml_results['forecast']
+            # Use allocation currency if available, else default to $
+            fc_cs = '$'
+            if ml_results.get('allocation'):
+                fc_cs = ml_results['allocation'].get('currency_symbol', '$')
             lines.append(f"\n**Monte Carlo Forecast ({fc.get('months', 12)}mo, 10K simulations)**\n")
-            lines.append(f"- Median outcome: **${fc.get('median_value', 0):,.0f}**")
+            lines.append(f"- Median outcome: **{fc_cs}{fc.get('median_value', 0):,.0f}**")
             lines.append(f"- {fc.get('probability_positive', 0):.0%} chance of positive return")
-            lines.append(f"- Best case (95th): ${fc.get('best_case', 0):,.0f}")
-            lines.append(f"- Worst case (5th): ${fc.get('worst_case', 0):,.0f}")
+            lines.append(f"- Best case (95th): {fc_cs}{fc.get('best_case', 0):,.0f}")
+            lines.append(f"- Worst case (5th): {fc_cs}{fc.get('worst_case', 0):,.0f}")
             var95 = fc.get('var_95', 0)
             if var95:
-                lines.append(f"- Value at Risk (95%): ${var95:,.0f}")
+                lines.append(f"- Value at Risk (95%): {fc_cs}{var95:,.0f}")
 
         if ml_results.get('sentiment'):
             sent = ml_results['sentiment']

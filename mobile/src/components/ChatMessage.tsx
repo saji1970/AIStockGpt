@@ -15,6 +15,8 @@ interface StockData {
   open?: number;
   volume?: number;
   marketCap?: number;
+  currency?: string;
+  currencySymbol?: string;
 }
 
 interface Props {

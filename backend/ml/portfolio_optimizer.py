@@ -25,7 +25,37 @@ def _to_yf_symbol(symbol: str) -> str:
     return symbol
 
 
-# Default symbol pools by risk level
+# Symbol pools by risk level and market
+SYMBOL_POOLS_US = {
+    'conservative': [
+        'BND', 'AGG', 'TLT', 'VTI', 'GLD', 'VIG', 'SCHD', 'VYM', 'JNJ', 'PG',
+    ],
+    'moderate': [
+        'VTI', 'QQQ', 'BND', 'GLD', 'VIG', 'AAPL', 'MSFT', 'GOOGL', 'JNJ', 'PG',
+    ],
+    'aggressive': [
+        'QQQ', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AMD', 'CRM',
+    ],
+}
+
+SYMBOL_POOLS_INDIA = {
+    'conservative': [
+        'HDFCBANK.BSE', 'SBIN.BSE', 'ITC.BSE', 'HINDUNILVR.BSE',
+        'NESTLEIND.BSE', 'BRITANNIA.BSE', 'POWERGRID.BSE', 'NTPC.BSE',
+    ],
+    'moderate': [
+        'HDFCBANK.BSE', 'ICICIBANK.BSE', 'INFY.BSE', 'TCS.BSE',
+        'RELIANCE.BSE', 'HINDUNILVR.BSE', 'ITC.BSE', 'LT.BSE',
+        'KOTAKBANK.BSE', 'SBIN.BSE',
+    ],
+    'aggressive': [
+        'INFY.BSE', 'TATAMOTORS.BSE', 'BAJFINANCE.BSE', 'ADANIENT.BSE',
+        'RELIANCE.BSE', 'ICICIBANK.BSE', 'HCLTECH.BSE', 'MARUTI.BSE',
+        'TITAN.BSE', 'BHARTIARTL.BSE',
+    ],
+}
+
+# Mixed (global) pool - default when no market specified
 SYMBOL_POOLS = {
     'conservative': [
         'BND', 'AGG', 'TLT', 'VTI', 'GLD', 'VIG', 'SCHD',
@@ -159,13 +189,29 @@ class PortfolioOptimizer:
         amount: float,
         risk_level: str,
         horizon_months: int,
+        market: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Generate a recommended allocation based on risk profile."""
+        """Generate a recommended allocation based on risk profile and market.
+
+        Args:
+            amount: Investment amount
+            risk_level: 'conservative', 'moderate', or 'aggressive'
+            horizon_months: Investment horizon in months
+            market: 'india', 'us', or None (global/mixed)
+        """
         risk_level = risk_level.lower()
         if risk_level not in SYMBOL_POOLS:
             risk_level = 'moderate'
 
-        symbols = SYMBOL_POOLS[risk_level]
+        # Select pool based on target market
+        if market == 'india':
+            pool = SYMBOL_POOLS_INDIA
+        elif market == 'us':
+            pool = SYMBOL_POOLS_US
+        else:
+            pool = SYMBOL_POOLS
+
+        symbols = pool[risk_level]
 
         # Choose optimization method based on risk level
         method_map = {
@@ -220,9 +266,16 @@ class PortfolioOptimizer:
         annual_ret = result['expected_annual_return']
         annual_vol = result['annual_volatility']
 
+        # Determine currency from the market
+        currency = 'INR' if market == 'india' else 'USD'
+        currency_symbol = '₹' if market == 'india' else '$'
+
         return {
             'allocations': allocations,
             'risk_level': risk_level,
+            'market': market or 'global',
+            'currency': currency,
+            'currency_symbol': currency_symbol,
             'expected_return_range': {
                 'low': annual_ret - annual_vol,
                 'mid': annual_ret,

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { TrendingUp, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -148,6 +148,17 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {!isRegister && (
+              <div className="flex justify-end">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
+            )}
 
             <button
               type="submit"

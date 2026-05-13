@@ -57,7 +57,11 @@ except ImportError:
 # Import new enhanced modules
 try:
     from backend.database import db_manager
-    from backend.auth import auth_manager, get_current_active_user, UserCreate, UserLogin, Token
+    from backend.email_service import email_service
+    from backend.auth import (
+        auth_manager, get_current_active_user, UserCreate, UserLogin, Token,
+        ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
+    )
     from backend.security import (
         SecurityMiddleware,
         rate_limit_public,
@@ -73,7 +77,11 @@ try:
 except ImportError:
     try:
         from database import db_manager
-        from auth import auth_manager, get_current_active_user, UserCreate, UserLogin, Token
+        from email_service import email_service
+        from auth import (
+            auth_manager, get_current_active_user, UserCreate, UserLogin, Token,
+            ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
+        )
         from security import (
             SecurityMiddleware,
             rate_limit_public,
@@ -1105,6 +1113,59 @@ if ENHANCED_MODULES_AVAILABLE:
     async def get_user_profile(current_user: Dict = Depends(get_current_active_user)):
         """Get current user profile."""
         return current_user
+
+    @app.post("/auth/change-password")
+    @rate_limit_sensitive
+    async def change_password(
+        request: ChangePasswordRequest,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """Change password for authenticated user."""
+        try:
+            auth_manager.change_password(
+                current_user["id"],
+                request.current_password,
+                request.new_password
+            )
+            return {"message": "Password changed successfully"}
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Change password error: {e}")
+            raise HTTPException(status_code=500, detail="Failed to change password")
+
+    @app.post("/auth/forgot-password")
+    @rate_limit_sensitive
+    async def forgot_password(request: ForgotPasswordRequest):
+        """Request password reset email. Always returns success to prevent email enumeration."""
+        try:
+            token = auth_manager.create_password_reset(request.email)
+            if token:
+                user = db_manager.get_user_by_email(request.email)
+                first_name = user.get("first_name", "User") if user else "User"
+                email_service.send_password_reset_email(request.email, token, first_name)
+
+            return {
+                "message": "If an account with that email exists, a password reset link has been sent."
+            }
+        except Exception as e:
+            logger.error(f"Forgot password error: {e}")
+            return {
+                "message": "If an account with that email exists, a password reset link has been sent."
+            }
+
+    @app.post("/auth/reset-password")
+    @rate_limit_sensitive
+    async def reset_password(request: ResetPasswordRequest):
+        """Reset password using a valid token."""
+        try:
+            auth_manager.reset_password(request.token, request.new_password)
+            return {"message": "Password has been reset successfully. You can now log in with your new password."}
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Reset password error: {e}")
+            raise HTTPException(status_code=500, detail="Failed to reset password")
 
     # Portfolio Management Endpoints
     @app.post("/portfolio/create")

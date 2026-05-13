@@ -14,7 +14,7 @@ from sqlalchemy.orm import joinedload
 from .db_session import SessionLocal
 from .models import (
     Base, User, Portfolio, Stock, ChatMessage, Prediction, EmailAlert,
-    MarketData, SentimentScore, MacroIndicator
+    MarketData, SentimentScore, MacroIndicator, PasswordResetToken
 )
 
 logger = logging.getLogger(__name__)
@@ -117,6 +117,74 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Failed to update user {user_id}: {e}")
+            return False
+        finally:
+            session.close()
+
+    # ------------------------------------------------------------------ #
+    # Password Reset Tokens
+    # ------------------------------------------------------------------ #
+
+    def create_password_reset_token(self, user_id: str, token: str, expires_at: datetime) -> bool:
+        """Create a password reset token, invalidating any existing unused tokens for the user."""
+        session = self._get_session()
+        try:
+            session.query(PasswordResetToken).filter(
+                PasswordResetToken.user_id == user_id,
+                PasswordResetToken.used == False
+            ).update({"used": True})
+
+            reset_token = PasswordResetToken(
+                user_id=user_id,
+                token=token,
+                expires_at=expires_at,
+                used=False,
+            )
+            session.add(reset_token)
+            session.commit()
+            return True
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to create password reset token: {e}")
+            return False
+        finally:
+            session.close()
+
+    def get_valid_reset_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Get a valid (unused, unexpired) password reset token."""
+        session = self._get_session()
+        try:
+            reset_token = session.query(PasswordResetToken).filter(
+                PasswordResetToken.token == token,
+                PasswordResetToken.used == False,
+                PasswordResetToken.expires_at > datetime.utcnow()
+            ).first()
+            if reset_token:
+                return {
+                    "id": str(reset_token.id),
+                    "user_id": reset_token.user_id,
+                    "token": reset_token.token,
+                    "expires_at": reset_token.expires_at,
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get reset token: {e}")
+            return None
+        finally:
+            session.close()
+
+    def mark_reset_token_used(self, token: str) -> bool:
+        """Mark a password reset token as used."""
+        session = self._get_session()
+        try:
+            updated = session.query(PasswordResetToken).filter(
+                PasswordResetToken.token == token
+            ).update({"used": True})
+            session.commit()
+            return updated > 0
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to mark reset token as used: {e}")
             return False
         finally:
             session.close()

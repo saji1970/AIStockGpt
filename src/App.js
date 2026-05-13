@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { TrendingUp, MessageSquare, Briefcase, LogOut, BarChart3, Moon, Sun } from 'lucide-react';
+import { TrendingUp, MessageSquare, Briefcase, LogOut, BarChart3, Moon, Sun, Settings } from 'lucide-react';
 import useAuthStore from './store/authStore';
 import ChatPage from './pages/ChatPage';
 import LoginPage from './pages/LoginPage';
 import PortfolioPage from './pages/PortfolioPage';
 import DashboardPage from './pages/DashboardPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import SettingsPage from './pages/SettingsPage';
 import './App.css';
 
 function ProtectedRoute({ children }) {
@@ -46,11 +49,13 @@ function App() {
     );
   }
 
-  // Login page renders without the app shell
-  if (location.pathname === '/login') {
+  // Auth pages render without the app shell
+  if (['/login', '/forgot-password', '/reset-password'].includes(location.pathname)) {
     return (
       <Routes>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Routes>
     );
   }
@@ -114,6 +119,18 @@ function App() {
               {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
+            <Link
+              to="/settings"
+              className={`flex items-center space-x-2 text-sm font-medium transition-colors ${
+                location.pathname === '/settings'
+                  ? 'text-primary-600'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Settings</span>
+            </Link>
+
             {isAuthenticated && (
               <div className="flex items-center space-x-3 ml-4 pl-4 border-l border-gray-200 dark:border-gray-600">
                 <span className="text-sm text-gray-600 dark:text-gray-400">{user?.first_name}</span>
@@ -153,6 +170,14 @@ function App() {
           element={
             <ProtectedRoute>
               <PortfolioPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
             </ProtectedRoute>
           }
         />

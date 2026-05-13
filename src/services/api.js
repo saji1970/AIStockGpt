@@ -102,6 +102,28 @@ export const getProfile = async () => {
   return response.data;
 };
 
+// Password management
+export const changePassword = async (currentPassword, newPassword) => {
+  const response = await api.post('/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+  return response.data;
+};
+
+export const forgotPassword = async (email) => {
+  const response = await api.post('/auth/forgot-password', { email });
+  return response.data;
+};
+
+export const resetPassword = async (token, newPassword) => {
+  const response = await api.post('/auth/reset-password', {
+    token,
+    new_password: newPassword,
+  });
+  return response.data;
+};
+
 // Portfolio
 export const createPortfolio = async (name, description) => {
   const response = await api.post('/portfolio/create', { name, description });

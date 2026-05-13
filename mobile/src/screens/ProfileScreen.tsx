@@ -12,7 +12,7 @@ interface Analytics {
   total_gain_loss: number;
 }
 
-export default function ProfileScreen() {
+export default function ProfileScreen({navigation}: any) {
   const {user, logout} = useAuth();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,6 +89,11 @@ export default function ProfileScreen() {
         </>
       ) : null}
 
+      {/* Change Password */}
+      <TouchableOpacity style={styles.changePassBtn} onPress={() => navigation.navigate('ChangePassword')} activeOpacity={0.7}>
+        <Text style={styles.changePassText}>Change Password</Text>
+      </TouchableOpacity>
+
       {/* Logout */}
       <TouchableOpacity style={styles.logoutBtn} onPress={logout} activeOpacity={0.7}>
         <Text style={styles.logoutText}>Sign Out</Text>
@@ -114,6 +119,8 @@ const styles = StyleSheet.create({
   infoRow: {flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6'},
   infoLabel: {fontSize: 14, color: '#6b7280'},
   infoValue: {fontSize: 14, fontWeight: '700', color: '#111827'},
-  logoutBtn: {backgroundColor: '#fef2f2', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 16, borderWidth: 1, borderColor: '#fecaca'},
+  changePassBtn: {backgroundColor: '#eef2ff', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 16, borderWidth: 1, borderColor: '#c7d2fe'},
+  changePassText: {color: '#6366f1', fontSize: 16, fontWeight: '700'},
+  logoutBtn: {backgroundColor: '#fef2f2', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: '#fecaca'},
   logoutText: {color: '#ef4444', fontSize: 16, fontWeight: '700'},
 });

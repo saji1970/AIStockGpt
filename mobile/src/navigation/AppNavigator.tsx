@@ -4,6 +4,8 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useAuth} from '../auth/AuthContext';
 
 import LoginScreen from '../screens/LoginScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ChatScreen from '../screens/ChatScreen';
 import PortfolioScreen from '../screens/PortfolioScreen';
 import AlertsScreen from '../screens/AlertsScreen';
@@ -47,9 +49,23 @@ export default function AppNavigator() {
   return (
     <Stack.Navigator screenOptions={{headerShown: false}}>
       {isAuthenticated ? (
-        <Stack.Screen name="Main" component={MainTabs} />
+        <>
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen
+            name="ChangePassword"
+            component={ChangePasswordScreen}
+            options={{headerShown: true, title: 'Change Password', headerStyle: {backgroundColor: '#6366f1'}, headerTintColor: '#fff', headerTitleStyle: {fontWeight: '700'}}}
+          />
+        </>
       ) : (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPasswordScreen}
+            options={{headerShown: true, title: 'Forgot Password', headerStyle: {backgroundColor: '#6366f1'}, headerTintColor: '#fff', headerTitleStyle: {fontWeight: '700'}}}
+          />
+        </>
       )}
     </Stack.Navigator>
   );

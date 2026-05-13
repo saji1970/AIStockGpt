@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { loginUser, registerUser, getProfile } from '../services/api';
+import { loginUser, registerUser, getProfile, changePassword as changePasswordApi } from '../services/api';
 
 const useAuthStore = create((set, get) => ({
   user: null,
@@ -49,6 +49,10 @@ const useAuthStore = create((set, get) => ({
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    await changePasswordApi(currentPassword, newPassword);
   },
 }));
 

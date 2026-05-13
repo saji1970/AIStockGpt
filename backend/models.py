@@ -117,6 +117,19 @@ class EmailAlert(Base):
     user = relationship("User", back_populates="email_alerts")
 
 
+class PasswordResetToken(Base):
+    __tablename__ = 'password_reset_tokens'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String(64), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    token = Column(String(255), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+    user = relationship("User")
+
+
 class MarketData(Base):
     __tablename__ = 'market_data'
 

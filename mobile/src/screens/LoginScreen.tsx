@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
 import {useAuth} from '../auth/AuthContext';
 
-export default function LoginScreen() {
+export default function LoginScreen({navigation}: any) {
   const {login, register} = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -98,6 +98,12 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>{isRegister ? 'Create Account' : 'Sign In'}</Text>
             )}
           </TouchableOpacity>
+
+          {!isRegister && (
+            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.toggle}>
+              <Text style={styles.toggleText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity onPress={() => setIsRegister(!isRegister)} style={styles.toggle}>
             <Text style={styles.toggleText}>

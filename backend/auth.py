@@ -4,6 +4,7 @@ Handles user authentication, JWT tokens, and security
 """
 
 import os
+import secrets
 import jwt
 import bcrypt
 from datetime import datetime, timedelta
@@ -53,6 +54,20 @@ class Token(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
+
+class ChangePasswordRequest(BaseModel):
+    """Change password request model"""
+    current_password: str
+    new_password: str
+
+class ForgotPasswordRequest(BaseModel):
+    """Forgot password request model"""
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password request model"""
+    token: str
+    new_password: str
 
 class AuthManager:
     """Manages authentication operations"""
@@ -245,6 +260,86 @@ class AuthManager:
             refresh_token=refresh_token,
             expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
+
+    def change_password(self, user_id: str, current_password: str, new_password: str) -> bool:
+        """Change password for an authenticated user."""
+        user = db_manager.get_user(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        if not self.verify_password(current_password, user.get("hashed_password", "")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+
+        from .security import security_config
+        if not security_config.validate_password(new_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be at least 8 characters with uppercase, lowercase, number, and special character"
+            )
+
+        if current_password == new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be different from current password"
+            )
+
+        new_hashed = self.hash_password(new_password)
+        success = db_manager.update_user(user_id, {"hashed_password": new_hashed})
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update password"
+            )
+        return True
+
+    def create_password_reset(self, email: str) -> Optional[str]:
+        """Create a password reset token. Returns None if user not found."""
+        user = db_manager.get_user_by_email(email)
+        if not user:
+            return None
+
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(minutes=30)
+
+        success = db_manager.create_password_reset_token(
+            user_id=user["user_id"],
+            token=token,
+            expires_at=expires_at,
+        )
+        return token if success else None
+
+    def reset_password(self, token: str, new_password: str) -> bool:
+        """Reset password using a valid reset token."""
+        from .security import security_config
+        if not security_config.validate_password(new_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters with uppercase, lowercase, number, and special character"
+            )
+
+        token_data = db_manager.get_valid_reset_token(token)
+        if not token_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+
+        new_hashed = self.hash_password(new_password)
+        success = db_manager.update_user(token_data["user_id"], {"hashed_password": new_hashed})
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to reset password"
+            )
+
+        db_manager.mark_reset_token_used(token)
+        return True
 
 # Global auth manager instance
 auth_manager = AuthManager()

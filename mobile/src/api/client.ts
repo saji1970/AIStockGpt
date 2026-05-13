@@ -51,6 +51,29 @@ export async function getProfile() {
   return res.data;
 }
 
+// ---- Password Management ----
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const res = await api.post('/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+  return res.data;
+}
+
+export async function forgotPassword(email: string) {
+  const res = await api.post('/auth/forgot-password', {email});
+  return res.data;
+}
+
+export async function resetPasswordWithToken(token: string, newPassword: string) {
+  const res = await api.post('/auth/reset-password', {
+    token,
+    new_password: newPassword,
+  });
+  return res.data;
+}
+
 // ---- Chat ----
 
 export async function sendMessage(message: string) {

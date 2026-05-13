@@ -561,19 +561,24 @@ class LLMProvider:
 
         if ml_results.get('prediction'):
             pred = ml_results['prediction']
-            lines.append(f"**{pred.get('symbol', '')} Analysis (XGBoost ML Model)**\n")
+            model_label = "XGBoost+LightGBM Ensemble" if pred.get('ensemble') else "XGBoost ML Model"
+            lines.append(f"**{pred.get('symbol', '')} Analysis ({model_label})**\n")
             lines.append(f"Direction: **{pred.get('direction', 'N/A')}**")
             prob = pred.get('probability', 0)
-            lines.append(f"Probability of positive return: **{prob:.0%}**")
+            lines.append(f"Calibrated probability: **{prob:.0%}**")
+            prob_raw = pred.get('probability_raw')
+            if prob_raw and abs(prob_raw - prob) > 0.01:
+                lines.append(f"Raw probability: {prob_raw:.0%}")
             conf = pred.get('confidence', 0)
             lines.append(f"Confidence: **{conf:.0%}**")
             exp_ret = pred.get('expected_return', 0)
-            lines.append(f"Expected 21-day return: **{exp_ret:.1%}**")
+            horizon = pred.get('horizon_days', 21)
+            lines.append(f"Expected {horizon}-day return: **{exp_ret:.1%}**")
             importance = pred.get('feature_importance', {})
             if importance:
                 top = list(importance.keys())[:5]
                 lines.append(f"\nTop factors: {', '.join(top)}")
-            lines.append("\n*21-day horizon. Not financial advice.*")
+            lines.append(f"\n*{horizon}-day horizon. Not financial advice.*")
 
         if ml_results.get('allocation'):
             alloc = ml_results['allocation']

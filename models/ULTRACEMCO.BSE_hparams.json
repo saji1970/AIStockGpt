@@ -1,0 +1,31 @@
+{
+  "xgb_params": {
+    "n_estimators": 500,
+    "max_depth": 6,
+    "learning_rate": 0.02881920846954823,
+    "subsample": 0.774655573121705,
+    "colsample_bytree": 0.6264950630912973,
+    "min_child_weight": 14,
+    "reg_alpha": 0.028525238593664497,
+    "reg_lambda": 0.40383427511873354,
+    "gamma": 0.23498544117300335,
+    "eval_metric": "logloss",
+    "early_stopping_rounds": 30,
+    "random_state": 42,
+    "n_jobs": -1
+  },
+  "lgb_params": {
+    "n_estimators": 500,
+    "max_depth": 6,
+    "learning_rate": 0.07523113450728054,
+    "subsample": 0.7092278674939803,
+    "colsample_bytree": 0.559903743008969,
+    "min_child_samples": 20,
+    "reg_alpha": 0.0027037173886731818,
+    "reg_lambda": 2.7795328710209155,
+    "num_leaves": 24,
+    "random_state": 42,
+    "n_jobs": -1,
+    "verbose": -1
+  }
+}

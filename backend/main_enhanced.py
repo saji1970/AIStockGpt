@@ -156,6 +156,7 @@ xgboost_predictor = None
 monte_carlo_sim = None
 portfolio_optimizer = None
 sentiment_analyzer = None
+regime_detector = None
 av_collector = None
 
 # Pydantic models
@@ -992,44 +993,63 @@ async def predict_stock(
     days_ahead: int = 5,
     current_user: Optional[Dict] = Depends(get_current_active_user) if ENHANCED_MODULES_AVAILABLE else None
 ):
-    """Enhanced stock prediction endpoint."""
+    """Enhanced stock prediction endpoint using XGBoost+LightGBM ensemble."""
     try:
-        if not ORIGINAL_MODULES_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Prediction service not available")
-        
-        # Validate symbol
         if ENHANCED_MODULES_AVAILABLE:
             validate_api_request(symbol)
-        
-        # Get or create model
+
+        # Try enhanced ensemble model first
+        if feature_pipeline and xgboost_predictor:
+            try:
+                features = feature_pipeline.build_features(symbol)
+                prediction = xgboost_predictor.predict(symbol, features)
+                # Save to database
+                if current_user and ENHANCED_MODULES_AVAILABLE:
+                    try:
+                        db_manager.save_prediction(
+                            current_user["id"], symbol,
+                            prediction, prediction.get('horizon_days', 21)
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to save prediction: {e}")
+
+                return {
+                    "symbol": symbol,
+                    "direction": prediction['direction'],
+                    "probability": prediction['probability'],
+                    "probability_raw": prediction.get('probability_raw', prediction['probability']),
+                    "confidence": prediction['confidence'],
+                    "expected_return": prediction['expected_return'],
+                    "horizon_days": prediction.get('horizon_days', 21),
+                    "ensemble": prediction.get('ensemble', False),
+                    "feature_importance": prediction.get('feature_importance', {}),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            except Exception as e:
+                logger.warning(f"Enhanced prediction failed for {symbol}, trying legacy: {e}")
+
+        # Fallback to legacy LSTM model
+        if not ORIGINAL_MODULES_AVAILABLE:
+            raise HTTPException(status_code=503, detail="Prediction service not available")
+
         model_data = get_or_create_model(symbol)
         if "error" in model_data:
             raise HTTPException(status_code=500, detail=model_data["error"])
-        
-        # Make prediction
+
         model = model_data['model']
         data_collector = model_data['data_collector']
-        
-        # Get latest data
         latest_data = data_collector.get_latest_data()
         if latest_data is None or latest_data.empty:
             raise HTTPException(status_code=404, detail=f"No data available for {symbol}")
-        
-        # Make prediction
+
         prediction = model.predict(latest_data, days_ahead)
-        
-        # Save prediction to database if user is authenticated
+
         if current_user and ENHANCED_MODULES_AVAILABLE:
             try:
-                db_manager.save_prediction(
-                    current_user["id"], 
-                    symbol, 
-                    prediction, 
-                    days_ahead
-                )
+                db_manager.save_prediction(current_user["id"], symbol, prediction, days_ahead)
             except Exception as e:
                 logger.warning(f"Failed to save prediction: {e}")
-        
+
         return {
             "symbol": symbol,
             "prediction": prediction.tolist(),
@@ -1457,21 +1477,30 @@ if ENHANCED_MODULES_AVAILABLE:
                     except Exception:
                         pass
 
-            # Determine regime
-            spy_data = indices.get('SPY', {})
-            regime = 'neutral'
-            if spy_data:
-                change_pct = spy_data.get('changePercent', 0)
-                if change_pct > 1:
-                    regime = 'bullish'
-                elif change_pct < -1:
-                    regime = 'bearish'
+            # Determine regime using ML-based regime detector
+            regime_info = {'regime': 'neutral', 'confidence': 0.0}
+            if regime_detector and feature_pipeline:
+                try:
+                    spy_features = feature_pipeline.build_features('SPY')
+                    regime_info = regime_detector.detect_regime(spy_features)
+                except Exception as e:
+                    logger.warning(f"Regime detection failed: {e}")
+                    # Fallback to simple price-based
+                    spy_data = indices.get('SPY', {})
+                    if spy_data:
+                        change_pct = spy_data.get('changePercent', 0)
+                        if change_pct > 1:
+                            regime_info = {'regime': 'bull_normal_vol', 'confidence': 0.6}
+                        elif change_pct < -1:
+                            regime_info = {'regime': 'bear_normal_vol', 'confidence': 0.6}
 
             return {
                 "indices": indices,
                 "macro_indicators": macro_data,
                 "sector_sentiment": sector_sentiment,
-                "regime": regime,
+                "regime": regime_info.get('regime', 'neutral'),
+                "regime_confidence": regime_info.get('confidence', 0),
+                "regime_details": regime_info.get('details', {}),
             }
         except Exception as e:
             logger.error(f"Market summary error: {e}")
@@ -1605,22 +1634,39 @@ if not ENHANCED_MODULES_AVAILABLE:
     async def predict_stock_fallback(symbol: str, days_ahead: int = 5):
         """Fallback prediction endpoint without authentication."""
         try:
+            # Try enhanced ensemble model first
+            if feature_pipeline and xgboost_predictor:
+                try:
+                    features = feature_pipeline.build_features(symbol)
+                    prediction = xgboost_predictor.predict(symbol, features)
+                    return {
+                        "symbol": symbol,
+                        "direction": prediction['direction'],
+                        "probability": prediction['probability'],
+                        "confidence": prediction['confidence'],
+                        "expected_return": prediction['expected_return'],
+                        "horizon_days": prediction.get('horizon_days', 21),
+                        "ensemble": prediction.get('ensemble', False),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                except Exception as e:
+                    logger.warning(f"Enhanced prediction failed for {symbol}: {e}")
+
             if not ORIGINAL_MODULES_AVAILABLE:
                 raise HTTPException(status_code=503, detail="Prediction service not available")
-            
+
             model_data = get_or_create_model(symbol)
             if "error" in model_data:
                 raise HTTPException(status_code=500, detail=model_data["error"])
-            
+
             model = model_data['model']
             data_collector = model_data['data_collector']
-            
             latest_data = data_collector.get_latest_data()
             if latest_data is None or latest_data.empty:
                 raise HTTPException(status_code=404, detail=f"No data available for {symbol}")
-            
+
             prediction = model.predict(latest_data, days_ahead)
-            
+
             return {
                 "symbol": symbol,
                 "prediction": prediction.tolist(),
@@ -1639,7 +1685,7 @@ if not ENHANCED_MODULES_AVAILABLE:
 async def startup_event():
     """Initialize the application on startup."""
     global feature_pipeline, xgboost_predictor, monte_carlo_sim
-    global portfolio_optimizer, sentiment_analyzer
+    global portfolio_optimizer, sentiment_analyzer, regime_detector
     global av_collector
 
     logger.info("Starting AI Stock GPT Enhanced API v2.0")
@@ -1671,6 +1717,7 @@ async def startup_event():
         from backend.ml.monte_carlo import MonteCarloSimulator
         from backend.ml.portfolio_optimizer import PortfolioOptimizer
         from backend.ml.sentiment import SentimentAnalyzer
+        from backend.ml.regime_detector import RegimeDetector
 
         _db = db_manager if ENHANCED_MODULES_AVAILABLE else None
         av_collector = AlphaVantageCollector()
@@ -1679,9 +1726,10 @@ async def startup_event():
         monte_carlo_sim = MonteCarloSimulator(av_collector=av_collector)
         portfolio_optimizer = PortfolioOptimizer(av_collector=av_collector)
         sentiment_analyzer = SentimentAnalyzer()
+        regime_detector = RegimeDetector()
         if _db:
             sentiment_analyzer.set_db_manager(_db)
-        logger.info("ML Engine initialized: XGBoost, Monte Carlo, PyPortfolioOpt, FinBERT")
+        logger.info("ML Engine initialized: XGBoost+LightGBM Ensemble, Monte Carlo, PyPortfolioOpt, FinBERT, RegimeDetector")
     except Exception as e:
         logger.warning(f"ML Engine init failed (will use fallbacks): {e}")
 

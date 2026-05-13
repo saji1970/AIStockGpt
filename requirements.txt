@@ -50,6 +50,8 @@ huggingface-hub>=0.20.0
 
 # ML Engine
 xgboost>=2.0.0
+lightgbm>=4.0.0
+optuna>=3.4.0
 pyportfolioopt>=1.5.6
 
 # FinBERT Sentiment

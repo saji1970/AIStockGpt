@@ -11,11 +11,14 @@ Provides LLM-powered text generation with a 3-tier fallback:
 import os
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+# Lazy import to avoid circular dependencies
+_training_retriever = None
 
 # Ollama configuration
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -35,7 +38,16 @@ class LLMProvider:
     def __init__(self):
         self.ollama_available = False
         self.hf_available = False
+        self.training_retriever = None
         self._check_providers()
+
+    def set_training_retriever(self, retriever):
+        """Set the training retriever for RAG-based few-shot prompting."""
+        self.training_retriever = retriever
+        if retriever and retriever.ready:
+            logger.info(f"LLM provider: training retriever attached ({len(retriever.examples)} examples)")
+        else:
+            logger.info("LLM provider: training retriever attached (not ready or empty)")
 
     def _check_providers(self):
         """Check which LLM providers are available."""
@@ -155,6 +167,61 @@ class LLMProvider:
                 "Discuss current market conditions, sector performance, "
                 "and notable market events."
             ),
+            "retirement_planning": (
+                "The user is asking about retirement or age-based investing. "
+                "Discuss age-appropriate asset allocation, glide paths (shifting from stocks to bonds over time), "
+                "sequence-of-returns risk, retirement income strategies, and the importance of de-risking "
+                "as retirement approaches. Include specific allocation percentages by age bracket. "
+                "Mention dividend income, bond laddering, and cash buffers for retirees."
+            ),
+            "behavioral_coaching": (
+                "The user is expressing emotional distress or behavioral challenges with investing. "
+                "Provide empathetic, evidence-based behavioral guidance. Reference historical data showing "
+                "that every crash has recovered. Discuss the psychology of panic selling, FOMO, hype chasing, "
+                "and regret. Suggest practical strategies: written investment plans, automation, reduced "
+                "portfolio checking frequency, right-sizing risk tolerance. Be supportive but honest."
+            ),
+            "income_strategy": (
+                "The user wants income from their investments. Discuss dividend ETFs (SCHD, VYM, VIG, DGRO), "
+                "REITs (VNQ), bond funds (BND, AGG), and high-yield options. Compare dividend yield vs total return. "
+                "Explain dividend reinvestment, tax implications of dividends, and how to build a portfolio "
+                "that generates regular income. Include specific yields and ticker symbols."
+            ),
+            "macro_analysis": (
+                "The user is asking about macroeconomic factors and their impact on investments. "
+                "Discuss interest rates, inflation, recession indicators, Fed monetary policy, "
+                "stagflation, and business cycle sectors. Reference historical examples (1970s stagflation, "
+                "2008 crisis, 2022 rate hikes). Explain which asset classes and sectors perform best "
+                "in each economic environment. Be educational and data-driven."
+            ),
+            "risk_assessment": (
+                "The user wants capital preservation or defensive investment strategy. "
+                "Discuss safe-haven assets (Treasury bonds TLT/SHY, gold GLD, cash), defensive sectors "
+                "(Consumer Staples XLP, Healthcare XLV, Utilities XLU), and portfolio construction "
+                "for crash resistance. Include expected max drawdowns for different allocations. "
+                "Emphasize that risk reduction means accepting lower returns in exchange for stability."
+            ),
+            "comparative_analysis": (
+                "The user is comparing two or more investments. Provide a balanced, data-driven comparison "
+                "covering: historical returns, volatility, expense ratios, dividend yield, sector exposure, "
+                "and risk characteristics. Use tables where helpful. Present pros and cons of each option "
+                "without bias. Conclude with guidance on when each option is more appropriate."
+            ),
+            "beginner_guidance": (
+                "The user is a beginner investor. Keep the language simple and jargon-free. "
+                "Recommend starting with broad index funds (VTI, VOO) or target-date funds. "
+                "Explain core concepts: diversification, compound growth, long-term perspective. "
+                "Suggest a simple 2-3 fund portfolio. Emphasize starting early and investing consistently. "
+                "Warn against common beginner mistakes: stock picking, timing the market, "
+                "taking advice from social media."
+            ),
+            "financial_planning": (
+                "The user has a specific financial goal (education savings, financial independence, "
+                "home purchase, etc.). Discuss goal-based investing: calculate required savings, "
+                "recommend appropriate time-horizon allocations, explain 529 plans for education, "
+                "the 4% rule for retirement withdrawal, and dollar-cost averaging. "
+                "Provide specific numbers and timelines based on the user's stated goals."
+            ),
             "general_question": (
                 "The user has a general question about the AI Stock GPT system. "
                 "Explain your capabilities: stock predictions using LSTM neural networks, "
@@ -169,6 +236,22 @@ class LLMProvider:
             f"System: {system_context}\n\n"
             f"Context: {context}\n\n"
         )
+
+        # Inject few-shot example from training data via RAG
+        if self.training_retriever and self.training_retriever.ready:
+            try:
+                examples = self.training_retriever.find_best_example(user_message, top_k=1, min_similarity=0.3)
+                if examples:
+                    ex = examples[0]
+                    prompt += (
+                        f"## Reference Example (similar query, similarity={ex['similarity']:.2f}):\n"
+                        f"User: {ex['user']}\n"
+                        f"Assistant: {ex['assistant'][:600]}\n\n"
+                        f"Use the style, depth, and structure of the above example to guide your response. "
+                        f"Adapt the content to the user's specific question below.\n\n"
+                    )
+            except Exception as e:
+                logger.warning(f"Training retriever lookup failed: {e}")
 
         if ml_results:
             prompt += "\n\n## ML Model Results (use these to inform your response):\n"
@@ -313,6 +396,147 @@ class LLMProvider:
                 "I can provide insights on current market trends and conditions. "
                 "Our AI analyzes multiple data points to identify market patterns. "
                 "For specific stock analysis, try asking about a particular symbol."
+            ),
+            "retirement_planning": (
+                "**Retirement Portfolio Planning**\n\n"
+                "As you approach retirement, the key is gradually shifting from growth to preservation and income:\n\n"
+                "**Age-Based Guidelines:**\n"
+                "- Age 50-55: 60-70% stocks / 25-30% bonds / 5-10% cash\n"
+                "- Age 55-60: 50-60% stocks / 30-35% bonds / 10-15% cash\n"
+                "- Age 60-65: 40-50% stocks / 35-40% bonds / 10-20% cash\n"
+                "- Age 65+: 30-40% stocks / 40-50% bonds / 15-25% cash\n\n"
+                "**Key Strategies:**\n"
+                "- Shift from growth (QQQ) to dividend/value (SCHD, VYM)\n"
+                "- Build a 2-3 year cash buffer for living expenses\n"
+                "- Diversify bonds: BND (broad), TIP (inflation-protected), SHY (short-term)\n"
+                "- Consider REITs (VNQ) for income\n\n"
+                "Try asking with your specific age and amount for a personalized allocation.\n\n"
+                "Note: This is not financial advice."
+            ),
+            "behavioral_coaching": (
+                "**Investment Behavioral Guidance**\n\n"
+                "Emotional reactions to markets are completely normal. Here's what the data shows:\n\n"
+                "- Every market crash in history has been followed by recovery\n"
+                "- Missing the 10 best trading days over 20 years roughly halves your returns\n"
+                "- Most of the best days occur during or immediately after crashes\n\n"
+                "**Practical Strategies:**\n"
+                "1. Write an investment plan now, before the next crash\n"
+                "2. Automate your contributions so emotions can't intervene\n"
+                "3. Check your portfolio quarterly, not daily\n"
+                "4. If crashes cause panic, your allocation is too aggressive - reduce risk\n"
+                "5. Keep 6-12 months expenses in cash as a psychological safety net\n\n"
+                "The investors who build the most wealth invest THROUGH crashes, not around them.\n\n"
+                "Note: If investment anxiety significantly impacts your life, consider a fee-only financial advisor."
+            ),
+            "income_strategy": (
+                "**Income Investing Strategies**\n\n"
+                "Here are the main approaches to generating investment income:\n\n"
+                "**Dividend ETFs:**\n"
+                "- SCHD (Schwab Dividend Equity): ~3.5% yield, quality companies\n"
+                "- VYM (Vanguard High Dividend): ~3% yield, broad diversification\n"
+                "- VIG (Vanguard Dividend Appreciation): ~2% yield, growing dividends\n\n"
+                "**Bond ETFs:**\n"
+                "- BND (Total Bond Market): ~4-5% yield, broad bond exposure\n"
+                "- AGG (Aggregate Bond): ~4-5% yield, investment grade\n"
+                "- TLT (Long Treasury): ~4% yield, government safety\n\n"
+                "**Real Estate:**\n"
+                "- VNQ (Vanguard REIT): ~4% yield, real estate income\n\n"
+                "**A balanced income portfolio** might combine: SCHD (40%) + BND (30%) + VNQ (15%) + VYM (15%)\n\n"
+                "Try asking with a specific amount for detailed allocation.\n\n"
+                "Note: This is not financial advice."
+            ),
+            "macro_analysis": (
+                "**Macroeconomic Analysis**\n\n"
+                "Different economic environments favor different asset classes:\n\n"
+                "**Rising Interest Rates:**\n"
+                "- Bonds fall (especially long-term TLT)\n"
+                "- Banks benefit (XLF)\n"
+                "- Growth stocks hurt (high valuations compressed)\n\n"
+                "**High Inflation:**\n"
+                "- TIPS outperform (inflation-protected)\n"
+                "- Commodities and energy rise (XLE)\n"
+                "- Gold tends to benefit (GLD)\n"
+                "- Consumer staples maintain pricing power (XLP)\n\n"
+                "**Recession:**\n"
+                "- Defensive sectors outperform: Healthcare (XLV), Staples (XLP), Utilities (XLU)\n"
+                "- Treasury bonds rally (TLT)\n"
+                "- Cyclical sectors underperform\n\n"
+                "**Business Cycle Sectors:**\n"
+                "- Early Recovery: Financials, Consumer Discretionary\n"
+                "- Mid-Expansion: Technology, Industrials\n"
+                "- Late Expansion: Energy, Materials\n"
+                "- Recession: Healthcare, Staples, Utilities\n\n"
+                "Note: This is educational analysis, not a prediction."
+            ),
+            "risk_assessment": (
+                "**Capital Preservation & Risk Management**\n\n"
+                "**Safe-Haven Assets:**\n"
+                "- US Treasury Bonds (TLT/SHY): Government-backed, rise during stock crashes\n"
+                "- Gold (GLD): 5,000-year store of value, low correlation with stocks\n"
+                "- Cash/Money Market: Zero price risk, immediate liquidity\n\n"
+                "**Defensive Portfolio Example:**\n"
+                "- Consumer Staples (XLP): 15% — essential goods companies\n"
+                "- Healthcare (XLV): 15% — non-discretionary spending\n"
+                "- Quality Dividend (SCHD): 12% — strong balance sheet companies\n"
+                "- Treasury Bonds (TLT): 10% — crash cushion\n"
+                "- Short-Term Bonds (SHY): 8% — stability\n"
+                "- Gold (GLD): 7% — crisis hedge\n"
+                "- VOO (S&P 500): 15% — core equity (reduced)\n"
+                "- Cash: 5% — dry powder\n\n"
+                "**Expected drawdowns:** -10% to -18% in severe recessions (vs -35% to -50% for aggressive portfolios)\n\n"
+                "Note: This is not financial advice."
+            ),
+            "comparative_analysis": (
+                "**Investment Comparison**\n\n"
+                "I can compare stocks, ETFs, and investment strategies. Here's an example framework:\n\n"
+                "**VOO (S&P 500) vs QQQ (Nasdaq-100):**\n"
+                "- VOO: Broader diversification (500 stocks), lower volatility, ~0.03% expense ratio\n"
+                "- QQQ: Tech-heavy (100 stocks), higher growth potential, higher volatility, ~0.20% expense ratio\n"
+                "- VOO max drawdown: ~-34% | QQQ max drawdown: ~-50%\n\n"
+                "**Growth vs Dividend Investing:**\n"
+                "- Growth (QQQ): Higher returns pre-retirement, more volatile, tax-efficient\n"
+                "- Dividend (SCHD): Lower volatility, regular income, easier to hold psychologically\n"
+                "- Best approach: Blend both based on your age and risk tolerance\n\n"
+                "Try asking about specific stocks or ETFs to compare.\n\n"
+                "Note: This is not financial advice."
+            ),
+            "beginner_guidance": (
+                "**Getting Started with Investing**\n\n"
+                "Welcome! Here's a simple framework:\n\n"
+                "**Step 1: Build an emergency fund** (6 months expenses in savings account)\n\n"
+                "**Step 2: Start with a simple portfolio:**\n"
+                "- VTI (Total US Stock Market): 70% — owns 4,000+ US stocks\n"
+                "- VXUS (Total International): 20% — owns 8,000+ global stocks\n"
+                "- BND (Total Bond Market): 10% — stability anchor\n\n"
+                "**Step 3: Automate** — Set up automatic monthly investments\n\n"
+                "**Key principles:**\n"
+                "- Start early, invest consistently\n"
+                "- Don't try to time the market\n"
+                "- Keep costs low (index funds charge ~0.03%)\n"
+                "- Don't check your portfolio daily\n"
+                "- Ignore stock tips from social media\n\n"
+                "This simple 3-fund portfolio has outperformed 80-90% of professional fund managers over 20 years.\n\n"
+                "Note: This is not financial advice."
+            ),
+            "financial_planning": (
+                "**Goal-Based Financial Planning**\n\n"
+                "**Financial Independence (4% Rule):**\n"
+                "- Annual expenses × 25 = your FI number\n"
+                "- $50K/year expenses → need $1.25M invested\n"
+                "- $75K/year expenses → need $1.875M invested\n\n"
+                "**Education Savings (529 Plan):**\n"
+                "- Tax-advantaged growth for college expenses\n"
+                "- Start early: $250/month for 18 years at 7% return ≈ $100K\n\n"
+                "**Dollar-Cost Averaging vs Lump Sum:**\n"
+                "- Lump sum wins ~68% of the time (markets go up more than down)\n"
+                "- DCA is better psychologically for nervous investors\n"
+                "- Most important: invest consistently, don't wait for the 'perfect' time\n\n"
+                "**Savings Rate Impact (starting from $0, 5% real return):**\n"
+                "- 20% savings rate → ~37 years to FI\n"
+                "- 40% savings rate → ~22 years to FI\n"
+                "- 60% savings rate → ~12.5 years to FI\n\n"
+                "Try asking with your specific goal and amount for a detailed plan.\n\n"
+                "Note: This is not financial advice."
             ),
             "general_question": (
                 "I'm AI Stock GPT, your intelligent stock market analysis assistant. "

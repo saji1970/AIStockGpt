@@ -40,15 +40,18 @@ except ImportError:
 try:
     from backend.nlp_enhanced import EnhancedNLPProcessor
     from backend.llm_provider import LLMProvider, llm_provider
+    from backend.training_retriever import TrainingRetriever
     ENHANCED_NLP_AVAILABLE = True
 except ImportError:
     try:
         from nlp_enhanced import EnhancedNLPProcessor
         from llm_provider import LLMProvider, llm_provider
+        from training_retriever import TrainingRetriever
         ENHANCED_NLP_AVAILABLE = True
     except ImportError:
         ENHANCED_NLP_AVAILABLE = False
         llm_provider = None
+        TrainingRetriever = None
         print("Warning: Enhanced NLP/LLM modules not available")
 
 # Import new enhanced modules
@@ -135,6 +138,7 @@ if ENHANCED_MODULES_AVAILABLE:
 
 # Global variables
 nlp_processor = None
+training_retriever = None
 models_cache = {}
 data_collectors = {}
 
@@ -195,14 +199,30 @@ class ForecastRequest(BaseModel):
     months: int = Field(12, description="Forecast horizon in months")
 
 def initialize_nlp():
-    """Initialize the NLP processor (enhanced or basic)."""
-    global nlp_processor
+    """Initialize the NLP processor, training retriever, and wire RAG into LLM."""
+    global nlp_processor, training_retriever
 
     # Try enhanced NLP first (sentence-transformers)
     if ENHANCED_NLP_AVAILABLE:
         try:
             nlp_processor = EnhancedNLPProcessor()
             logger.info("Enhanced NLP processor initialized (sentence-transformers)")
+
+            # Initialize TrainingRetriever sharing the NLP model for efficiency
+            if TrainingRetriever is not None:
+                try:
+                    shared_model = nlp_processor.model if nlp_processor.use_ml else None
+                    training_retriever = TrainingRetriever(model=shared_model)
+                    if training_retriever.ready and llm_provider:
+                        llm_provider.set_training_retriever(training_retriever)
+                        logger.info("Training retriever wired into LLM provider (RAG enabled)")
+                    elif training_retriever.ready:
+                        logger.info("Training retriever ready but no LLM provider to attach to")
+                    else:
+                        logger.warning("Training retriever initialized but not ready")
+                except Exception as e:
+                    logger.warning(f"Training retriever init failed: {e}")
+
             return
         except Exception as e:
             logger.warning(f"Enhanced NLP init failed, falling back to basic: {e}")
@@ -478,11 +498,20 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             except Exception as e:
                 logger.warning(f"Sentiment analysis failed for {symbol}: {e}")
 
-        # Portfolio optimizer + Monte Carlo for market_advice (with or without amount)
-        if intent == "market_advice" and portfolio_optimizer:
-            amount = entities.get('amount', 10000)  # default $10K if no amount specified
-            risk = entities.get('risk_level', 'moderate')
-            horizon = entities.get('horizon_months', 12)
+        # Portfolio optimizer + Monte Carlo for intents that benefit from allocation advice
+        _allocation_intents = {
+            "market_advice":       {"default_risk": "moderate", "default_horizon": 12},
+            "retirement_planning": {"default_risk": "conservative", "default_horizon": 120},
+            "income_strategy":     {"default_risk": "conservative", "default_horizon": 60},
+            "risk_assessment":     {"default_risk": "conservative", "default_horizon": 12},
+            "financial_planning":  {"default_risk": "moderate", "default_horizon": 60},
+            "beginner_guidance":   {"default_risk": "moderate", "default_horizon": 36},
+        }
+        if intent in _allocation_intents and portfolio_optimizer:
+            defaults = _allocation_intents[intent]
+            amount = entities.get('amount', 10000)
+            risk = entities.get('risk_level', defaults["default_risk"])
+            horizon = entities.get('horizon_months', defaults["default_horizon"])
             market = entities.get('market')  # 'india', 'us', or None
             try:
                 ml_results['allocation'] = portfolio_optimizer.recommend_allocation(amount, risk, horizon, market=market)

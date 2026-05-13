@@ -99,6 +99,11 @@ INTENT_REFERENCES = {
         "safe stocks for long term investment",
         "dividend stocks to buy",
         "growth stocks recommendations",
+        "which stock shows promising growth and is low cost",
+        "cheap stocks with strong growth potential",
+        "undervalued growth stocks to buy now",
+        "low price stocks with high upside",
+        "best growth stocks under 20 dollars",
         "crypto investment advice",
         "how to diversify my investments",
         "best options in current market",
@@ -248,6 +253,10 @@ REGEX_INTENT_PATTERNS = {
         r"market.*(?:recommend|advice|tip|outlook|trend)",
         r"what.*(?:should|would).*(?:invest|buy)",
         r"(?:safe|risky|growth|value|dividend).*(?:stock|invest|fund)",
+        r"(?:which|what)\s+stock.*(?:growth|cheap|undervalued|promising|low\s*cost|affordable)",
+        r"(?:promising|strong)\s+growth.*(?:low|cheap|cost|affordable|undervalued)",
+        r"(?:cheap|low[-\s]?cost|affordable|undervalued).*(?:growth|growing|potential|upside)",
+        r"(?:growth|growing).*(?:cheap|low\s*price|affordable|undervalued)",
         r"(?:stock|invest|fund).*(?:beginner|starter|start)",
         r"diversif", r"sector.*(?:perform|best|top|hot)", r"asset.*allocation",
         r"(?:current|today).*market", r"index.*fund",
@@ -333,8 +342,8 @@ STOCK_SYMBOLS = [
     # US Stocks
     'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX',
     'ADBE', 'CRM', 'ORCL', 'INTC', 'AMD', 'IBM', 'CSCO', 'QCOM',
-    'AVGO', 'TXN', 'MU', 'AMAT', 'KLAC', 'LRCX', 'ADI', 'MCHP',
-    'PYPL', 'SQ', 'V', 'MA', 'JPM', 'BAC', 'WFC', 'GS', 'MS',
+    'AVGO', 'TXN', 'MU', 'MRVL', 'AMAT', 'KLAC', 'LRCX', 'ADI', 'MCHP',
+    'PYPL', 'SQ', 'SOFI', 'V', 'MA', 'JPM', 'BAC', 'WFC', 'GS', 'MS',
     'DIS', 'NKE', 'SBUX', 'MCD', 'KO', 'PEP', 'WMT', 'TGT', 'HD',
     'LOW', 'COST', 'TMO', 'ABBV', 'JNJ', 'PFE', 'MRK', 'UNH',
     'CVS', 'ANTM', 'CI', 'HUM', 'ELV', 'DHR', 'GE', 'BA', 'CAT',
@@ -357,6 +366,30 @@ STOCK_SYMBOLS = [
     'BHARTIARTL.BSE', 'ADANIENT.BSE', 'ADANIPORTS.BSE',
 ]
 
+# Tickers that match common English words when the user types lowercase ("low cost" -> LOW)
+AMBIGUOUS_TICKERS = frozenset(
+    s for s in {
+        "LOW", "COST", "CAT", "DE", "DIS", "GS", "MS", "KO", "MA", "BA", "V", "CRM",
+        "WMT", "TGT", "HD", "PG", "META", "ALL", "KEY", "NET", "NOW", "FAST", "LITE",
+    }
+    if s in STOCK_SYMBOLS
+)
+
+# Lowercase ticker spellings users often type intentionally
+ALLOW_LOWER_TICKERS = frozenset({
+    "aapl", "msft", "googl", "goog", "amzn", "tsla", "meta", "fb", "nvda", "nflx",
+    "spy", "qqq", "iwm", "dia", "voo", "vti", "amd", "intc", "mu", "avgo",
+    "pypl", "coin", "hood", "sofi", "pltr", "rivn", "lcid", "f", "gm", "mrvl",
+    "qcom", "shop", "sq", "uber", "abnb", "nke", "jpm", "bac", "xom", "pfe",
+})
+
+# Lowercase ticker spellings users often type intentionally
+ALLOW_LOWER_TICKERS = frozenset({
+    'aapl', 'msft', 'googl', 'goog', 'amzn', 'tsla', 'meta', 'fb', 'nvda', 'nflx',
+    'spy', 'qqq', 'iwm', 'dia', 'voo', 'vti', 'amd', 'intc', 'mu', 'avgo',
+    'pypl', 'coin', 'hood', 'sofi', 'pltr', 'rivn', 'lcid', 'f', 'gm',
+})
+
 # Company name to symbol mapping (case-insensitive lookup)
 COMPANY_NAME_MAP = {
     # US Companies
@@ -366,6 +399,9 @@ COMPANY_NAME_MAP = {
     'oracle': 'ORCL', 'intel': 'INTC', 'amd': 'AMD', 'ibm': 'IBM',
     'cisco': 'CSCO', 'qualcomm': 'QCOM', 'broadcom': 'AVGO',
     'paypal': 'PYPL', 'square': 'SQ', 'block': 'SQ',
+    'sofi': 'SOFI', 'sofi technologies': 'SOFI',
+    'micron': 'MU', 'micron technology': 'MU',
+    'marvell': 'MRVL', 'marvell technology': 'MRVL',
     'visa': 'V', 'mastercard': 'MA', 'jpmorgan': 'JPM', 'jp morgan': 'JPM',
     'bank of america': 'BAC', 'wells fargo': 'WFC', 'goldman sachs': 'GS',
     'morgan stanley': 'MS', 'disney': 'DIS', 'nike': 'NKE',
@@ -607,20 +643,40 @@ class EnhancedNLPProcessor:
                     found.append(sym)
                 break  # Use first (longest) match
 
-        # 2. Check known symbols in original (case-sensitive)
-        words = original.upper().split()
-        for word in words:
-            # Preserve dots for exchange suffixes like .BSE / .NSE
-            clean = re.sub(r'[^\w.]', '', word).strip('.')
-            if clean in STOCK_SYMBOLS and clean not in found:
-                found.append(clean)
-            # Also check without suffix (e.g. user types "INFY" -> match "INFY.BSE")
-            base = clean.split('.')[0]
-            if base and base not in [f.split('.')[0] for f in found]:
-                for sym in STOCK_SYMBOLS:
-                    if sym.split('.')[0] == base and sym not in found:
-                        found.append(sym)
+        # 2. Known symbols as words — require $, ALL CAPS, allowlist, or long non-ambiguous tickers
+        for m in re.finditer(r"\$?\b([A-Za-z][A-Za-z0-9.]{0,14})\b", original):
+            raw = m.group(1)
+            if raw.startswith("$"):
+                raw = raw[1:]
+            clean = re.sub(r"[^\w.]", "", raw).strip(".")
+            if not clean:
+                continue
+
+            upper_clean = clean.upper()
+            sym: Optional[str] = None
+            if upper_clean in STOCK_SYMBOLS:
+                sym = upper_clean
+            else:
+                base = upper_clean.split(".", 1)[0]
+                for s in STOCK_SYMBOLS:
+                    if s.split(".")[0] == base:
+                        sym = s
                         break
+            if not sym or sym in found:
+                continue
+
+            rlow = raw.lower()
+            all_caps = raw == raw.upper()
+            base_len = len(sym.split(".")[0])
+
+            if rlow in ALLOW_LOWER_TICKERS or all_caps:
+                found.append(sym)
+                continue
+            if sym in AMBIGUOUS_TICKERS:
+                continue
+            if base_len <= 4:
+                continue
+            found.append(sym)
 
         # 3. Pattern-based extraction from original message (US symbols)
         symbol_patterns = [

@@ -449,6 +449,72 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+_GROWTH_VALUE_SCREENING_PATTERNS = [
+    r"(?:which|what)\s+stock(?:s)?.*(?:growth|cheap|undervalued|promising|low[-\s]?cost|affordable|inexpensive)",
+    r"(?:promising|strong)\s+growth.*(?:low|cheap|cost|affordable|undervalued|price)",
+    r"(?:cheap|low[-\s]?cost|affordable|undervalued|inexpensive).*(?:growth|growing|potential|upside)",
+    r"(?:growth|growing).*(?:cheap|low[-\s]?cost|affordable|undervalued|low\s+price)",
+    r"(?:best|good|interesting)\s+(?:cheap|low[-\s]?cost).*(?:growth|grow)",
+    r"(?:under|below)\s*\$?\s*\d+.*(?:growth|grow)",
+]
+
+
+def _is_growth_value_screening_message(text: str) -> bool:
+    """Broad stock-picking questions (growth + low cost / cheap) — not a single-ticker TA request."""
+    t = (text or "").lower()
+    if not t:
+        return False
+    return any(re.search(p, t) for p in _GROWTH_VALUE_SCREENING_PATTERNS)
+
+
+def _format_growth_value_screening_markdown(india: bool) -> str:
+    """ChatGPT-style structured answer: criteria + table + categories + follow-ups."""
+    if india:
+        return (
+            "## Growth-oriented ideas (India)\n\n"
+            "If you want **growth with a lower absolute share price**, screen for "
+            "**revenue growth**, **margin improvement**, and **valuation vs growth**—not share price alone.\n\n"
+            "| Stock | Why it can look interesting | Risk |\n"
+            "|------|-----------------------------|------|\n"
+            "| **INFY.BSE** (Infosys) | IT scale; AI/digital deal narrative | Medium |\n"
+            "| **HDFCBANK.BSE** (HDFC Bank) | Retail banking growth; strong franchise | Medium |\n"
+            "| **RELIANCE.BSE** (Reliance) | Conglomerate optionality (energy, retail, telecom) | Medium–High |\n"
+            "| **TCS.BSE** (TCS) | Large IT; cash generation | Medium |\n"
+            "| **BAJFINANCE.BSE** (Bajaj Finance) | Consumer/lending growth; often premium valuation | Medium–High |\n"
+            "| **LT.BSE** (L&T) | Infra / engineering cycle exposure | Medium |\n\n"
+            "### Ask next in AI Stock GPT\n"
+            "For **live price + ML context**, name a ticker: *\"Predict INFY.BSE\"* or *\"Technical analysis of HDFCBANK.BSE\"*.\n\n"
+            "---\n\n"
+            "*Not financial advice. Do your own research.*"
+        )
+    return (
+        "## Growth vs \"low cost\" (US)\n\n"
+        "If you want **growth at a relatively lower share price** (or **better value vs growth**), "
+        "investors often look for **revenue growth**, **profitability inflection**, **theme tailwinds** "
+        "(AI, fintech, semis), and **valuation vs peers**.\n\n"
+        "Here is an **illustrative** shortlist (not a buy ranking):\n\n"
+        "| Stock | Why it looks interesting | Risk level |\n"
+        "|------|---------------------------|------------|\n"
+        "| **SOFI** (SoFi Technologies) | Fintech + banking ecosystem; often cited as a lower-priced growth name | Medium–High |\n"
+        "| **MU** (Micron) | AI/memory demand; discussed as relatively cheaper vs some AI leaders | Medium |\n"
+        "| **MRVL** (Marvell) | AI networking / custom silicon | Medium–High |\n"
+        "| **QCOM** (Qualcomm) | Edge AI + handsets + automotive; often less extreme mega-cap multiples | Medium |\n"
+        "| **PYPL** (PayPal) | Turnaround + commerce / payments cyclicality | Medium |\n"
+        "| **AMD** (AMD) | AI accelerator + CPU narrative vs larger peers | Medium–High |\n\n"
+        "### By angle (how people *talk* about buckets — not advice)\n"
+        "- **Lower-priced fintech / digital growth**: **SOFI**\n"
+        "- **AI memory at a relatively cheaper bar vs some leaders**: **MU**\n"
+        "- **AI connectivity / silicon**: **MRVL**\n"
+        "- **Cash flow + devices + automotive optionality**: **QCOM**\n\n"
+        "### Follow-ups you can ask\n"
+        "- \"Best stocks under $20\"\n"
+        "- \"AI stocks with upside but cheaper than NVDA\"\n"
+        "- \"Conservative vs aggressive $5,000 growth portfolio\"\n\n"
+        "---\n\n"
+        "*Not financial advice. Prices and fundamentals change—verify before acting.*"
+    )
+
+
 def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, Any]:
     """Generate AI response to user message using NLP + ML Engine + LLM + live stock data."""
     try:
@@ -475,6 +541,13 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
 
         # Process message with NLP (returns tuple: intent, entities, confidence)
         intent, entities, confidence = nlp_processor.process_message(message)
+
+        # Broad "growth + cheap / low cost" questions are not single-ticker TA (also avoids false symbols like LOW from "low cost")
+        if _is_growth_value_screening_message(message):
+            intent = "market_advice"
+            entities.pop("symbol", None)
+            entities["screening_growth_value"] = True
+            confidence = max(confidence, 0.85)
 
         # Fetch real stock data if a symbol was detected (for ALL intents)
         stock_data = None
@@ -516,7 +589,7 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             "financial_planning":  {"default_risk": "moderate", "default_horizon": 60},
             "beginner_guidance":   {"default_risk": "moderate", "default_horizon": 36},
         }
-        if intent in _allocation_intents and portfolio_optimizer:
+        if intent in _allocation_intents and portfolio_optimizer and not entities.get("screening_growth_value"):
             defaults = _allocation_intents[intent]
             amount = entities.get('amount', 10000)
             risk = entities.get('risk_level', defaults["default_risk"])
@@ -691,7 +764,14 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
         else:
             # No stock data and no ML results - use LLM/template response
             if intent == "market_advice":
-                if llm_provider:
+                if entities.get("screening_growth_value"):
+                    ml = (message or "").lower()
+                    india = (
+                        entities.get("market") == "india"
+                        or any(k in ml for k in ("india", "indian", "nifty", "sensex", "bse", "nse", "rupee", "inr"))
+                    )
+                    response_text = _format_growth_value_screening_markdown(india)
+                elif llm_provider:
                     response_text = llm_provider.generate_response(intent, entities, message)
                 else:
                     response_text = handle_market_advice(message, entities)
@@ -699,6 +779,23 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                 response_text = llm_provider.generate_response(intent, entities, message)
             else:
                 response_text = handle_general_question(message)
+
+        if entities.get("screening_growth_value") and stock_data is None:
+            try:
+                ml_spot = (message or "").lower()
+                india_spot = (
+                    entities.get("market") == "india"
+                    or any(
+                        k in ml_spot
+                        for k in ("india", "indian", "nifty", "sensex", "bse", "nse", "rupee", "inr")
+                    )
+                )
+                sp = "HDFCBANK.BSE" if india_spot else "SOFI"
+                spot = fetch_stock_data(sp)
+                if spot:
+                    stock_data = spot
+            except Exception:
+                pass
 
         # Save chat history if user is authenticated
         if user_id and ENHANCED_MODULES_AVAILABLE:

@@ -5,7 +5,7 @@ import {getAccessToken} from '../storage/tokenStorage';
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {'Content-Type': 'application/json'},
-  timeout: 30000,
+  timeout: 60000,
 });
 
 // Attach JWT token to every request

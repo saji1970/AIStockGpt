@@ -1,5 +1,6 @@
 """
 Portfolio optimization using PyPortfolioOpt.
+Alpha Vantage is the primary data source; yfinance is the fallback.
 """
 
 import logging
@@ -7,7 +8,6 @@ from typing import Dict, Any, List, Optional
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from pypfopt import expected_returns, risk_models, EfficientFrontier
 from pypfopt.discrete_allocation import DiscreteAllocation, get_latest_prices
 
@@ -71,9 +71,38 @@ SYMBOL_POOLS = {
     ],
 }
 
+# Static fallback allocations when live data is completely unavailable
+_STATIC_ALLOCATIONS = {
+    'us': {
+        'conservative': {'BND': 0.30, 'AGG': 0.20, 'VTI': 0.20, 'GLD': 0.15, 'VIG': 0.15},
+        'moderate':     {'VTI': 0.25, 'QQQ': 0.20, 'BND': 0.15, 'AAPL': 0.15, 'MSFT': 0.15, 'GLD': 0.10},
+        'aggressive':   {'QQQ': 0.20, 'AAPL': 0.15, 'MSFT': 0.15, 'NVDA': 0.15, 'GOOGL': 0.15, 'AMZN': 0.10, 'TSLA': 0.10},
+    },
+    'india': {
+        'conservative': {'HDFCBANK.BSE': 0.25, 'SBIN.BSE': 0.20, 'ITC.BSE': 0.20, 'HINDUNILVR.BSE': 0.20, 'POWERGRID.BSE': 0.15},
+        'moderate':     {'HDFCBANK.BSE': 0.15, 'INFY.BSE': 0.15, 'TCS.BSE': 0.15, 'RELIANCE.BSE': 0.20, 'ICICIBANK.BSE': 0.15, 'ITC.BSE': 0.10, 'LT.BSE': 0.10},
+        'aggressive':   {'INFY.BSE': 0.15, 'TATAMOTORS.BSE': 0.15, 'BAJFINANCE.BSE': 0.15, 'RELIANCE.BSE': 0.20, 'ADANIENT.BSE': 0.15, 'HCLTECH.BSE': 0.10, 'TITAN.BSE': 0.10},
+    },
+    'global': {
+        'conservative': {'BND': 0.20, 'VTI': 0.15, 'GLD': 0.15, 'VIG': 0.15, 'HDFCBANK.BSE': 0.15, 'SBIN.BSE': 0.10, 'ITC.BSE': 0.10},
+        'moderate':     {'VTI': 0.15, 'QQQ': 0.15, 'AAPL': 0.10, 'MSFT': 0.10, 'BND': 0.10, 'GLD': 0.10, 'INFY.BSE': 0.10, 'HDFCBANK.BSE': 0.10, 'RELIANCE.BSE': 0.10},
+        'aggressive':   {'QQQ': 0.15, 'AAPL': 0.10, 'NVDA': 0.10, 'MSFT': 0.10, 'GOOGL': 0.10, 'AMZN': 0.10, 'INFY.BSE': 0.10, 'TATAMOTORS.BSE': 0.10, 'BAJFINANCE.BSE': 0.10, 'TSLA': 0.05},
+    },
+}
+
+# Static expected return estimates by risk level
+_STATIC_RETURNS = {
+    'conservative': {'return': 0.06, 'volatility': 0.08},
+    'moderate':     {'return': 0.10, 'volatility': 0.15},
+    'aggressive':   {'return': 0.15, 'volatility': 0.22},
+}
+
 
 class PortfolioOptimizer:
-    """Portfolio optimization using PyPortfolioOpt."""
+    """Portfolio optimization using PyPortfolioOpt with Alpha Vantage primary data."""
+
+    def __init__(self, av_collector=None):
+        self.av_collector = av_collector
 
     def optimize(
         self,
@@ -221,34 +250,28 @@ class PortfolioOptimizer:
         }
         method = method_map[risk_level]
 
-        # Filter to symbols with available data
-        valid_symbols = []
-        for s in symbols:
-            try:
-                ticker = yf.Ticker(_to_yf_symbol(s))
-                hist = ticker.history(period="5d")
-                if not hist.empty:
-                    valid_symbols.append(s)
-            except Exception:
-                continue
+        # Filter to symbols with available data using Alpha Vantage (fast)
+        valid_symbols = self._validate_symbols(symbols)
 
         if len(valid_symbols) < 2:
-            raise ValueError("Insufficient valid symbols for optimization")
+            logger.warning("Insufficient live data, using static fallback allocation")
+            return self._static_fallback(amount, risk_level, market)
 
         # Optimize
-        result = self.optimize(valid_symbols, method)
+        try:
+            result = self.optimize(valid_symbols, method)
+        except Exception as e:
+            logger.warning(f"Optimization failed ({e}), using static fallback")
+            return self._static_fallback(amount, risk_level, market)
+
         weights = result['weights']
 
-        # Compute allocations
+        # Compute allocations with latest prices
         allocations = {}
         for symbol, weight in weights.items():
             sym_amount = amount * weight
-            try:
-                ticker = yf.Ticker(_to_yf_symbol(symbol))
-                latest_price = ticker.history(period="1d")['Close'].iloc[-1]
-                shares_approx = sym_amount / latest_price
-            except Exception:
-                shares_approx = 0
+            latest_price = self._get_latest_price(symbol)
+            shares_approx = (sym_amount / latest_price) if latest_price else 0
 
             allocations[symbol] = {
                 'weight': weight,
@@ -257,10 +280,14 @@ class PortfolioOptimizer:
             }
 
         # Risk metrics on the recommended allocation
-        risk_metrics = self.risk_analysis(
-            list(weights.keys()),
-            list(weights.values())
-        )
+        try:
+            risk_metrics = self.risk_analysis(
+                list(weights.keys()),
+                list(weights.values())
+            )
+        except Exception as e:
+            logger.warning(f"Risk analysis failed: {e}")
+            risk_metrics = {}
 
         # Expected return ranges
         annual_ret = result['expected_annual_return']
@@ -268,7 +295,7 @@ class PortfolioOptimizer:
 
         # Determine currency from the market
         currency = 'INR' if market == 'india' else 'USD'
-        currency_symbol = '₹' if market == 'india' else '$'
+        currency_symbol = '\u20b9' if market == 'india' else '$'
 
         return {
             'allocations': allocations,
@@ -285,22 +312,145 @@ class PortfolioOptimizer:
             'method': method,
         }
 
-    def _get_price_data(self, symbols: List[str], period_days: int = 504) -> pd.DataFrame:
-        """Fetch adjusted close prices via yfinance."""
-        prices = {}
-        for symbol in symbols:
+    def _validate_symbols(self, symbols: List[str]) -> List[str]:
+        """Validate which symbols have available data. Alpha Vantage first, yfinance fallback."""
+        valid = []
+
+        # Try Alpha Vantage first (fast, reliable on Railway)
+        if self.av_collector:
+            for s in symbols:
+                try:
+                    quote = self.av_collector.get_quote(s)
+                    if quote and quote.get('price', 0) > 0:
+                        valid.append(s)
+                        continue
+                except Exception:
+                    pass
+            if len(valid) >= 2:
+                logger.info(f"Validated {len(valid)}/{len(symbols)} symbols via Alpha Vantage")
+                return valid
+
+        # Fallback: yfinance batch download (single request, faster than individual)
+        try:
+            import yfinance as yf
+            yf_symbols = [_to_yf_symbol(s) for s in symbols]
+            data = yf.download(yf_symbols, period="5d", progress=False, threads=True)
+            if not data.empty:
+                # Map back to original symbols
+                av_to_yf = {s: _to_yf_symbol(s) for s in symbols}
+                for s in symbols:
+                    yf_s = av_to_yf[s]
+                    try:
+                        if 'Close' in data.columns:
+                            col = data['Close'] if len(yf_symbols) == 1 else data['Close'][yf_s]
+                        else:
+                            col = data[yf_s] if yf_s in data.columns else None
+                        if col is not None and not col.dropna().empty:
+                            if s not in valid:
+                                valid.append(s)
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.warning(f"yfinance batch validation failed: {e}")
+
+        logger.info(f"Validated {len(valid)}/{len(symbols)} symbols total")
+        return valid
+
+    def _get_latest_price(self, symbol: str) -> Optional[float]:
+        """Get latest price for a symbol. Alpha Vantage first."""
+        if self.av_collector:
             try:
-                ticker = yf.Ticker(_to_yf_symbol(symbol))
-                hist = ticker.history(period=f"{period_days}d")
-                if not hist.empty:
-                    prices[symbol] = hist['Close']
-            except Exception as e:
-                logger.warning(f"Failed to fetch prices for {symbol}: {e}")
+                quote = self.av_collector.get_quote(symbol)
+                if quote and quote.get('price', 0) > 0:
+                    return quote['price']
+            except Exception:
+                pass
+
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(_to_yf_symbol(symbol))
+            hist = ticker.history(period="5d")
+            if not hist.empty:
+                return float(hist['Close'].iloc[-1])
+        except Exception:
+            pass
+
+        return None
+
+    def _get_price_data(self, symbols: List[str], period_days: int = 504) -> pd.DataFrame:
+        """Fetch adjusted close prices. Alpha Vantage primary, yfinance fallback."""
+        prices = {}
+
+        # Try Alpha Vantage first for each symbol
+        if self.av_collector:
+            for symbol in symbols:
+                try:
+                    df = self.av_collector.get_daily_history(symbol, days=period_days)
+                    if df is not None and not df.empty and 'close' in df.columns:
+                        prices[symbol] = df['close']
+                except Exception as e:
+                    logger.warning(f"Alpha Vantage history failed for {symbol}: {e}")
+
+        # Fallback to yfinance for any missing symbols
+        missing = [s for s in symbols if s not in prices]
+        if missing:
+            for symbol in missing:
+                try:
+                    import yfinance as yf
+                    ticker = yf.Ticker(_to_yf_symbol(symbol))
+                    hist = ticker.history(period=f"{period_days}d")
+                    if not hist.empty:
+                        prices[symbol] = hist['Close']
+                except Exception as e:
+                    logger.warning(f"yfinance history failed for {symbol}: {e}")
 
         if not prices:
             return pd.DataFrame()
 
         return pd.DataFrame(prices).dropna()
+
+    def _static_fallback(
+        self,
+        amount: float,
+        risk_level: str,
+        market: Optional[str],
+    ) -> Dict[str, Any]:
+        """Return a static allocation when live data is unavailable."""
+        market_key = market if market in ('us', 'india') else 'global'
+        weights = _STATIC_ALLOCATIONS[market_key][risk_level]
+        estimates = _STATIC_RETURNS[risk_level]
+
+        allocations = {}
+        for symbol, weight in weights.items():
+            sym_amount = amount * weight
+            allocations[symbol] = {
+                'weight': weight,
+                'amount': round(sym_amount, 2),
+                'shares_approx': 0,  # Can't compute without live price
+            }
+
+        currency = 'INR' if market == 'india' else 'USD'
+        currency_symbol = '\u20b9' if market == 'india' else '$'
+        annual_ret = estimates['return']
+        annual_vol = estimates['volatility']
+
+        return {
+            'allocations': allocations,
+            'risk_level': risk_level,
+            'market': market_key,
+            'currency': currency,
+            'currency_symbol': currency_symbol,
+            'expected_return_range': {
+                'low': annual_ret - annual_vol,
+                'mid': annual_ret,
+                'high': annual_ret + annual_vol,
+            },
+            'risk_metrics': {
+                'annual_volatility': annual_vol,
+                'sharpe_ratio': annual_ret / annual_vol if annual_vol else 0,
+            },
+            'method': 'static_fallback',
+        }
 
     def _risk_parity(self, cov_matrix: pd.DataFrame) -> Dict[str, float]:
         """Simple risk parity: equal risk contribution."""
@@ -318,6 +468,22 @@ class PortfolioOptimizer:
     def _compute_beta(self, port_returns: pd.Series) -> float:
         """Compute beta vs SPY."""
         try:
+            # Try Alpha Vantage for SPY data
+            if self.av_collector:
+                df = self.av_collector.get_daily_history('SPY', days=len(port_returns) + 30)
+                if df is not None and not df.empty and 'close' in df.columns:
+                    spy_returns = df['close'].pct_change().dropna()
+                    aligned = pd.DataFrame({
+                        'port': port_returns,
+                        'spy': spy_returns
+                    }).dropna()
+                    if len(aligned) >= 30:
+                        cov = aligned['port'].cov(aligned['spy'])
+                        var = aligned['spy'].var()
+                        return float(cov / var) if var > 0 else 1.0
+
+            # Fallback to yfinance
+            import yfinance as yf
             spy = yf.Ticker('SPY').history(period=f"{len(port_returns) + 30}d")
             if spy.empty:
                 return 1.0

@@ -308,10 +308,18 @@ def _currency_code(symbol: str) -> str:
 
 
 def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Fetch real-time stock data via RapidAPI, with Yahoo Finance and yfinance fallbacks."""
+    """Fetch real-time stock data. Alpha Vantage primary, RapidAPI and Yahoo Finance fallbacks."""
     import requests as req
 
-    # Try Real-Time Finance Data API (RapidAPI) first - works in Docker/Railway
+    # Tier 1: Alpha Vantage (premium, most reliable on Railway)
+    global av_collector
+    if av_collector:
+        av_quote = av_collector.get_quote(symbol)
+        if av_quote:
+            logger.info(f"Stock data fetched via Alpha Vantage for {symbol}")
+            return av_quote
+
+    # Tier 2: RapidAPI Real-Time Finance Data
     rapidapi_key = os.getenv("RAPIDAPI_KEY", "")
     if rapidapi_key:
         for attempt in range(2):
@@ -344,15 +352,7 @@ def fetch_stock_data(symbol: str) -> Optional[Dict[str, Any]]:
             except Exception as e:
                 logger.warning(f"RapidAPI stock fetch failed for {symbol} (attempt {attempt+1}): {e}")
 
-    # Tier 2: Alpha Vantage
-    global av_collector
-    if av_collector:
-        av_quote = av_collector.get_quote(symbol)
-        if av_quote:
-            logger.info(f"Stock data fetched via Alpha Vantage for {symbol}")
-            return av_quote
-
-    # Fallback: Direct Yahoo Finance v8 API (no library needed)
+    # Tier 3: Direct Yahoo Finance v8 API (no library needed)
     yf_sym = _to_yf_symbol(symbol)
     try:
         yahoo_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_sym}"
@@ -1669,8 +1669,8 @@ async def startup_event():
         av_collector = AlphaVantageCollector()
         feature_pipeline = FeaturePipeline(db_manager=_db, av_collector=av_collector)
         xgboost_predictor = XGBoostPredictor()
-        monte_carlo_sim = MonteCarloSimulator()
-        portfolio_optimizer = PortfolioOptimizer()
+        monte_carlo_sim = MonteCarloSimulator(av_collector=av_collector)
+        portfolio_optimizer = PortfolioOptimizer(av_collector=av_collector)
         sentiment_analyzer = SentimentAnalyzer()
         if _db:
             sentiment_analyzer.set_db_manager(_db)

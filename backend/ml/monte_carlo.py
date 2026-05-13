@@ -1,5 +1,6 @@
 """
 Monte Carlo simulation using Geometric Brownian Motion with correlated returns.
+Alpha Vantage is the primary data source; yfinance is the fallback.
 """
 
 import logging
@@ -7,13 +8,15 @@ from typing import Dict, Any, List, Tuple
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
 
 class MonteCarloSimulator:
     """Monte Carlo simulation using Geometric Brownian Motion with correlated returns."""
+
+    def __init__(self, av_collector=None):
+        self.av_collector = av_collector
 
     def simulate(
         self,
@@ -73,14 +76,38 @@ class MonteCarloSimulator:
     def _estimate_parameters(
         self, symbols: List[str], lookback_days: int = 252
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Estimate annualized mu and covariance from historical yfinance data."""
+        """Estimate annualized mu and covariance from historical data."""
         prices = {}
-        for symbol in symbols:
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period=f"{lookback_days + 30}d")
-            if hist.empty:
-                raise ValueError(f"No price data for {symbol}")
-            prices[symbol] = hist['Close']
+
+        # Try Alpha Vantage first
+        if self.av_collector:
+            for symbol in symbols:
+                try:
+                    df = self.av_collector.get_daily_history(symbol, days=lookback_days + 30)
+                    if df is not None and not df.empty and 'close' in df.columns:
+                        prices[symbol] = df['close']
+                except Exception as e:
+                    logger.warning(f"Alpha Vantage history failed for {symbol}: {e}")
+
+        # Fallback to yfinance for missing symbols
+        missing = [s for s in symbols if s not in prices]
+        if missing:
+            try:
+                import yfinance as yf
+                for symbol in missing:
+                    try:
+                        from backend.ml.portfolio_optimizer import _to_yf_symbol
+                    except ImportError:
+                        _to_yf_symbol = lambda s: s
+                    ticker = yf.Ticker(_to_yf_symbol(symbol))
+                    hist = ticker.history(period=f"{lookback_days + 30}d")
+                    if not hist.empty:
+                        prices[symbol] = hist['Close']
+            except Exception as e:
+                logger.warning(f"yfinance fallback failed: {e}")
+
+        if not prices:
+            raise ValueError("No price data available for any symbol")
 
         price_df = pd.DataFrame(prices).dropna()
 

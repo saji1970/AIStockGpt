@@ -1,5 +1,6 @@
 import React, {useState, useRef, useCallback, useEffect} from 'react';
-import {View, TextInput, TouchableOpacity, FlatList, StyleSheet, Text, Keyboard, Platform, Animated} from 'react-native';
+import {View, TextInput, TouchableOpacity, FlatList, StyleSheet, Text, Keyboard, Platform, Animated, Alert} from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import ChatMessage from '../components/ChatMessage';
 import TypingIndicator from '../components/TypingIndicator';
 import QuickPrompts from '../components/QuickPrompts';
@@ -11,6 +12,8 @@ interface Message {
   isUser: boolean;
   timestamp: string;
   stockData?: any;
+  isError?: boolean;
+  originalPrompt?: string;
 }
 
 export default function ChatScreen() {
@@ -80,6 +83,8 @@ export default function ChatScreen() {
           text: `Error: ${err?.response?.data?.detail || err?.message || 'Failed to get response'}`,
           isUser: false,
           timestamp: new Date().toISOString(),
+          isError: true,
+          originalPrompt: text.trim(),
         };
         setMessages(prev => [...prev, errMsg]);
       } finally {
@@ -89,8 +94,46 @@ export default function ChatScreen() {
     [isTyping],
   );
 
+  const handleRetry = useCallback(
+    (messageId: string, originalPrompt: string) => {
+      // Remove the error message and the original user message before it
+      setMessages(prev => {
+        const errIdx = prev.findIndex(m => m.id === messageId);
+        if (errIdx === -1) return prev;
+        // Remove the user message right before the error + the error itself
+        const userIdx = errIdx - 1;
+        const filtered = prev.filter(
+          (_, i) => i !== errIdx && (userIdx < 0 || i !== userIdx),
+        );
+        return filtered;
+      });
+      // Re-send the original prompt
+      sendMessage(originalPrompt);
+    },
+    [sendMessage],
+  );
+
+  const handleCopy = useCallback((text: string) => {
+    Clipboard.setString(text);
+    Alert.alert('Copied', 'Message copied to clipboard');
+  }, []);
+
+  const handleCopyToInput = useCallback((text: string) => {
+    setInput(text);
+  }, []);
+
   const renderItem = ({item}: {item: Message}) => (
-    <ChatMessage message={item.text} isUser={item.isUser} timestamp={item.timestamp} stockData={item.stockData} />
+    <ChatMessage
+      message={item.text}
+      isUser={item.isUser}
+      timestamp={item.timestamp}
+      stockData={item.stockData}
+      isError={item.isError}
+      originalPrompt={item.originalPrompt}
+      onRetry={item.isError ? () => handleRetry(item.id, item.originalPrompt!) : undefined}
+      onCopy={() => handleCopy(item.text)}
+      onCopyToInput={item.isUser ? () => handleCopyToInput(item.text) : undefined}
+    />
   );
 
   const showQuickPrompts = messages.length === 0 && !isTyping;

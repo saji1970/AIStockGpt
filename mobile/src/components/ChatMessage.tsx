@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity, Alert} from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import StockCard from './StockCard';
 
@@ -24,25 +24,79 @@ interface Props {
   isUser: boolean;
   timestamp?: string;
   stockData?: StockData | null;
+  isError?: boolean;
+  originalPrompt?: string;
+  onRetry?: () => void;
+  onCopy?: () => void;
+  onCopyToInput?: () => void;
 }
 
-export default function ChatMessage({message, isUser, timestamp, stockData}: Props) {
+export default function ChatMessage({
+  message,
+  isUser,
+  timestamp,
+  stockData,
+  isError,
+  onRetry,
+  onCopy,
+  onCopyToInput,
+}: Props) {
   const time = timestamp ? new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
+
+  const bubbleContent = (
+    <>
+      {isUser ? (
+        <Text style={styles.userText}>{message}</Text>
+      ) : isError ? (
+        <View>
+          <Text style={styles.errorText}>{message}</Text>
+          <View style={styles.errorActions}>
+            <Text style={styles.retryHint}>Tap to retry</Text>
+          </View>
+        </View>
+      ) : (
+        <Markdown style={markdownStyles}>{message}</Markdown>
+      )}
+      {stockData && <StockCard data={stockData} />}
+      {time ? <Text style={styles.timestamp}>{time}</Text> : null}
+    </>
+  );
 
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.aiContainer]}>
-      <View style={[styles.avatar, isUser ? styles.userAvatar : styles.aiAvatar]}>
-        <Text style={styles.avatarText}>{isUser ? 'U' : 'AI'}</Text>
+      <View style={[styles.avatar, isUser ? styles.userAvatar : isError ? styles.errorAvatar : styles.aiAvatar]}>
+        <Text style={styles.avatarText}>{isUser ? 'U' : isError ? '!' : 'AI'}</Text>
       </View>
-      <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
-        {isUser ? (
-          <Text style={styles.userText}>{message}</Text>
-        ) : (
-          <Markdown style={markdownStyles}>{message}</Markdown>
-        )}
-        {stockData && <StockCard data={stockData} />}
-        {time ? <Text style={styles.timestamp}>{time}</Text> : null}
-      </View>
+
+      {isError ? (
+        <TouchableOpacity
+          style={[styles.bubble, styles.errorBubble]}
+          onPress={onRetry}
+          onLongPress={onCopy}
+          activeOpacity={0.7}>
+          {bubbleContent}
+        </TouchableOpacity>
+      ) : isUser ? (
+        <TouchableOpacity
+          style={[styles.bubble, styles.userBubble]}
+          onLongPress={() => {
+            Alert.alert('Message Options', undefined, [
+              {text: 'Copy to Input', onPress: onCopyToInput},
+              {text: 'Copy Text', onPress: onCopy},
+              {text: 'Cancel', style: 'cancel'},
+            ]);
+          }}
+          activeOpacity={0.9}>
+          {bubbleContent}
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.bubble, styles.aiBubble]}
+          onLongPress={onCopy}
+          activeOpacity={0.9}>
+          {bubbleContent}
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -54,11 +108,16 @@ const styles = StyleSheet.create({
   avatar: {width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginHorizontal: 6},
   userAvatar: {backgroundColor: '#6366f1'},
   aiAvatar: {backgroundColor: '#10b981'},
+  errorAvatar: {backgroundColor: '#ef4444'},
   avatarText: {color: '#fff', fontSize: 12, fontWeight: '700'},
   bubble: {maxWidth: '75%', borderRadius: 16, padding: 12},
   userBubble: {backgroundColor: '#6366f1', borderBottomRightRadius: 4},
   aiBubble: {backgroundColor: '#f3f4f6', borderBottomLeftRadius: 4},
+  errorBubble: {backgroundColor: '#fef2f2', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#fecaca'},
   userText: {color: '#fff', fontSize: 15, lineHeight: 22},
+  errorText: {color: '#dc2626', fontSize: 15, lineHeight: 22},
+  errorActions: {flexDirection: 'row', alignItems: 'center', marginTop: 8, justifyContent: 'space-between'},
+  retryHint: {color: '#6366f1', fontSize: 12, fontWeight: '700'},
   timestamp: {fontSize: 10, color: '#9ca3af', marginTop: 4, alignSelf: 'flex-end'},
 });
 

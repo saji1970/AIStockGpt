@@ -104,9 +104,13 @@ class HyperparamTuner:
 
         return result
 
+    @staticmethod
+    def _safe_filename(symbol: str) -> str:
+        return symbol.replace('=', '_').replace('^', '_')
+
     def load_params(self, symbol: str) -> Optional[Dict]:
         """Load previously tuned params for a symbol."""
-        path = os.path.join(self.params_dir, f'{symbol}_hparams.json')
+        path = os.path.join(self.params_dir, f'{self._safe_filename(symbol)}_hparams.json')
         if os.path.exists(path):
             try:
                 with open(path, 'r') as f:
@@ -274,7 +278,7 @@ class HyperparamTuner:
 
     def _save_params(self, symbol: str, params: Dict) -> None:
         """Save tuned params to JSON."""
-        path = os.path.join(self.params_dir, f'{symbol}_hparams.json')
+        path = os.path.join(self.params_dir, f'{self._safe_filename(symbol)}_hparams.json')
         try:
             with open(path, 'w') as f:
                 json.dump(params, f, indent=2)

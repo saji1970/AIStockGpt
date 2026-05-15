@@ -19,6 +19,7 @@ v2 improvements over v1:
 """
 
 import logging
+from enum import Enum
 from typing import Dict, Any, Optional
 
 import numpy as np
@@ -26,6 +27,24 @@ import pandas as pd
 import yfinance as yf
 
 logger = logging.getLogger(__name__)
+
+
+class AssetClass(str, Enum):
+    US_STOCK = "us_stock"
+    INDIA_STOCK = "india_stock"
+    FOREX = "forex"
+    COMMODITY = "commodity"
+    MONEY_MARKET = "money_market"
+    CRYPTO = "crypto"
+
+
+# Asset classes that have reliable volume data from yfinance
+_VOLUME_AVAILABLE = {
+    AssetClass.US_STOCK,
+    AssetClass.INDIA_STOCK,
+    AssetClass.CRYPTO,
+    AssetClass.COMMODITY,
+}
 
 
 class FeaturePipeline:
@@ -49,6 +68,22 @@ class FeaturePipeline:
         upper = symbol.upper()
         return upper.endswith('.BSE') or upper.endswith('.BO') or upper.endswith('.NS') or upper.endswith('.NSE')
 
+    @staticmethod
+    def classify_asset(symbol: str) -> AssetClass:
+        """Classify a symbol into its asset class."""
+        upper = symbol.upper()
+        if upper.endswith('=X'):
+            return AssetClass.FOREX
+        if upper.endswith('=F'):
+            return AssetClass.COMMODITY
+        if upper.startswith('^'):
+            return AssetClass.MONEY_MARKET
+        if '-USD' in upper or upper.endswith('-USDT'):
+            return AssetClass.CRYPTO
+        if FeaturePipeline._is_indian(symbol):
+            return AssetClass.INDIA_STOCK
+        return AssetClass.US_STOCK
+
     # ── public API ──────────────────────────────────────────────
 
     def build_features(self, symbol: str, lookback_days: int = 504) -> pd.DataFrame:
@@ -59,21 +94,37 @@ class FeaturePipeline:
             raise ValueError(f"No price data available for {symbol}")
 
         df.columns = [c.lower().replace(' ', '_') for c in df.columns]
-        for col in ['open', 'high', 'low', 'close', 'volume']:
+        for col in ['open', 'high', 'low', 'close']:
             if col not in df.columns:
                 raise ValueError(f"Missing column: {col}")
 
+        asset_class = self.classify_asset(symbol)
+
+        # Ensure volume column exists (forex/money-market may lack it)
+        if 'volume' not in df.columns:
+            df['volume'] = 0
+        has_volume = (
+            asset_class in _VOLUME_AVAILABLE
+            and df['volume'].sum() > 0
+        )
+        if not has_volume:
+            df['volume'] = 0
+
+        # Annualization factor: 365 for crypto (24/7), 252 for traditional
+        ann_factor = 365 if asset_class == AssetClass.CRYPTO else 252
+
         # Core feature groups
-        df = self._add_technical_indicators(df)
-        df = self._add_volatility_indicators(df)
-        df = self._add_momentum_indicators(df, symbol)
+        df = self._add_technical_indicators(df, has_volume=has_volume)
+        df = self._add_volatility_indicators(df, ann_factor=ann_factor)
+        df = self._add_momentum_indicators(df, symbol, asset_class=asset_class, ann_factor=ann_factor)
         df = self._add_mean_reversion_features(df)
-        df = self._add_volume_features(df)
+        if has_volume:
+            df = self._add_volume_features(df)
         df = self._add_gap_features(df)
         df = self._add_crossover_signals(df)
-        df = self._add_regime_features(df)
-        df = self._add_lag_features(df)
-        df = self._add_time_features(df)
+        df = self._add_regime_features(df, ann_factor=ann_factor)
+        df = self._add_lag_features(df, has_volume=has_volume)
+        df = self._add_time_features(df, asset_class=asset_class)
         df = self._add_macro_features(df)
 
         # Drop all-NaN columns
@@ -177,7 +228,7 @@ class FeaturePipeline:
 
     # ── technical indicators ────────────────────────────────────
 
-    def _add_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _add_technical_indicators(self, df: pd.DataFrame, has_volume: bool = True) -> pd.DataFrame:
         close = df['close']
         high = df['high']
         low = df['low']
@@ -220,9 +271,10 @@ class FeaturePipeline:
         df['atr_14'] = tr.rolling(14).mean()
         df['atr_ratio'] = df['atr_14'] / close.replace(0, np.nan)
 
-        # OBV — vectorized
-        direction = np.sign(close.diff())
-        df['obv'] = (direction * volume).fillna(0).cumsum()
+        # OBV — vectorized (skip for assets without volume)
+        if has_volume:
+            direction = np.sign(close.diff())
+            df['obv'] = (direction * volume).fillna(0).cumsum()
 
         # Stochastic
         low_14 = low.rolling(14).min()
@@ -242,29 +294,30 @@ class FeaturePipeline:
         df['adx_14'] = dx.rolling(14).mean()
 
         # VWAP approximation (intraday proxy using daily typical price * volume)
-        typical_price = (high + low + close) / 3
-        cum_tp_vol = (typical_price * volume).rolling(20).sum()
-        cum_vol = volume.rolling(20).sum()
-        df['vwap_20'] = cum_tp_vol / cum_vol.replace(0, np.nan)
-        df['price_vs_vwap'] = (close - df['vwap_20']) / df['vwap_20'].replace(0, np.nan)
+        if has_volume:
+            typical_price = (high + low + close) / 3
+            cum_tp_vol = (typical_price * volume).rolling(20).sum()
+            cum_vol = volume.rolling(20).sum()
+            df['vwap_20'] = cum_tp_vol / cum_vol.replace(0, np.nan)
+            df['price_vs_vwap'] = (close - df['vwap_20']) / df['vwap_20'].replace(0, np.nan)
 
         return df
 
     # ── volatility ──────────────────────────────────────────────
 
-    def _add_volatility_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _add_volatility_indicators(self, df: pd.DataFrame, ann_factor: int = 252) -> pd.DataFrame:
         close = df['close']
         returns = close.pct_change()
 
-        df['hist_vol_10'] = returns.rolling(10).std() * np.sqrt(252)
-        df['hist_vol_20'] = returns.rolling(20).std() * np.sqrt(252)
-        df['hist_vol_60'] = returns.rolling(60).std() * np.sqrt(252)
+        df['hist_vol_10'] = returns.rolling(10).std() * np.sqrt(ann_factor)
+        df['hist_vol_20'] = returns.rolling(20).std() * np.sqrt(ann_factor)
+        df['hist_vol_60'] = returns.rolling(60).std() * np.sqrt(ann_factor)
 
         # Garman-Klass volatility
         log_hl = np.log(df['high'] / df['low'].replace(0, np.nan)) ** 2
         log_co = np.log(df['close'] / df['open'].replace(0, np.nan)) ** 2
         df['garman_klass'] = np.sqrt(
-            (0.5 * log_hl - (2 * np.log(2) - 1) * log_co).rolling(20).mean() * 252
+            (0.5 * log_hl - (2 * np.log(2) - 1) * log_co).rolling(20).mean() * ann_factor
         )
 
         # Volatility of volatility
@@ -281,9 +334,13 @@ class FeaturePipeline:
 
     # ── momentum ────────────────────────────────────────────────
 
-    def _add_momentum_indicators(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    def _add_momentum_indicators(self, df: pd.DataFrame, symbol: str,
+                                   asset_class: AssetClass = None, ann_factor: int = 252) -> pd.DataFrame:
         close = df['close']
         returns = close.pct_change()
+
+        if asset_class is None:
+            asset_class = self.classify_asset(symbol)
 
         # Multi-period returns
         for period in [1, 5, 10, 21, 63, 126, 252]:
@@ -298,8 +355,19 @@ class FeaturePipeline:
         df['roc_10'] = close.pct_change(10)
         df['roc_21'] = close.pct_change(21)
 
-        # Beta vs benchmark
-        benchmark_sym = '^BSESN' if self._is_indian(symbol) else 'SPY'
+        # Beta vs benchmark — asset-class-aware
+        _benchmark_map = {
+            AssetClass.US_STOCK: 'SPY',
+            AssetClass.INDIA_STOCK: '^BSESN',
+            AssetClass.FOREX: 'DX-Y.NYB',       # US Dollar Index
+            AssetClass.COMMODITY: 'SPY',
+            AssetClass.MONEY_MARKET: '^TNX',     # 10Y yield benchmark
+            AssetClass.CRYPTO: 'BTC-USD',
+        }
+        benchmark_sym = _benchmark_map.get(asset_class, 'SPY')
+        # Avoid self-benchmarking
+        if symbol.upper() == benchmark_sym.upper():
+            benchmark_sym = 'SPY'
         try:
             bench = yf.Ticker(benchmark_sym).history(period=f"{len(df) + 30}d")
             if not bench.empty:
@@ -332,14 +400,14 @@ class FeaturePipeline:
         # Rolling Sharpe (21-day)
         df['rolling_sharpe_21'] = (
             returns.rolling(21).mean() / returns.rolling(21).std().replace(0, np.nan)
-        ) * np.sqrt(252)
+        ) * np.sqrt(ann_factor)
 
         # Sortino ratio (21-day, downside only)
         downside = returns.copy()
         downside[downside > 0] = 0
         df['rolling_sortino_21'] = (
             returns.rolling(21).mean() / downside.rolling(21).std().replace(0, np.nan)
-        ) * np.sqrt(252)
+        ) * np.sqrt(ann_factor)
 
         return df
 
@@ -429,13 +497,13 @@ class FeaturePipeline:
 
     # ── regime features ─────────────────────────────────────────
 
-    def _add_regime_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _add_regime_features(self, df: pd.DataFrame, ann_factor: int = 252) -> pd.DataFrame:
         """Market regime classification features."""
         close = df['close']
         returns = close.pct_change()
 
         # Volatility regime (0=low, 1=medium, 2=high)
-        vol_20 = returns.rolling(20).std() * np.sqrt(252)
+        vol_20 = returns.rolling(20).std() * np.sqrt(ann_factor)
         vol_percentile = vol_20.rolling(252, min_periods=63).rank(pct=True)
         df['vol_regime'] = pd.cut(vol_percentile, bins=[0, 0.33, 0.66, 1.0],
                                    labels=[0, 1, 2], include_lowest=True).astype(float)
@@ -462,17 +530,19 @@ class FeaturePipeline:
 
     # ── lag features ────────────────────────────────────────────
 
-    def _add_lag_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _add_lag_features(self, df: pd.DataFrame, has_volume: bool = True) -> pd.DataFrame:
         """Lag features using RETURNS (not raw prices) to avoid scale leakage."""
         returns = df['close'].pct_change()
-        vol_returns = df['volume'].pct_change()
 
         df['return_lag_1'] = returns.shift(1)
         df['return_lag_2'] = returns.shift(2)
         df['return_lag_5'] = returns.shift(5)
         df['return_lag_10'] = returns.shift(10)
-        df['vol_return_lag_1'] = vol_returns.shift(1)
-        df['vol_return_lag_5'] = vol_returns.shift(5)
+
+        if has_volume:
+            vol_returns = df['volume'].pct_change()
+            df['vol_return_lag_1'] = vol_returns.shift(1)
+            df['vol_return_lag_5'] = vol_returns.shift(5)
 
         # Auto-correlation of returns
         df['return_autocorr_5'] = returns.rolling(21).apply(
@@ -483,15 +553,16 @@ class FeaturePipeline:
 
     # ── time features ───────────────────────────────────────────
 
-    def _add_time_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _add_time_features(self, df: pd.DataFrame, asset_class: AssetClass = None) -> pd.DataFrame:
         """Cyclical time encoding (sin/cos) instead of raw integers."""
         idx = df.index
         dow = idx.dayofweek
         month = idx.month
 
-        # Cyclical encoding
-        df['day_sin'] = np.sin(2 * np.pi * dow / 5)
-        df['day_cos'] = np.cos(2 * np.pi * dow / 5)
+        # Cyclical encoding — crypto trades 7 days/week
+        days_per_week = 7 if asset_class == AssetClass.CRYPTO else 5
+        df['day_sin'] = np.sin(2 * np.pi * dow / days_per_week)
+        df['day_cos'] = np.cos(2 * np.pi * dow / days_per_week)
         df['month_sin'] = np.sin(2 * np.pi * month / 12)
         df['month_cos'] = np.cos(2 * np.pi * month / 12)
         df['quarter'] = idx.quarter

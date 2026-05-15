@@ -916,6 +916,19 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                     market = 'us'
                 elif currency == 'INR':
                     market = 'india'
+            # Infer market from detected symbol asset class
+            if not market and symbol:
+                try:
+                    from backend.ml.feature_pipeline import AssetClass, FeaturePipeline
+                    _ac = FeaturePipeline.classify_asset(symbol)
+                    _ac_market = {
+                        AssetClass.FOREX: 'forex', AssetClass.COMMODITY: 'commodity',
+                        AssetClass.CRYPTO: 'crypto', AssetClass.INDIA_STOCK: 'india',
+                        AssetClass.US_STOCK: 'us',
+                    }
+                    market = _ac_market.get(_ac)
+                except Exception:
+                    pass
             try:
                 ml_results['allocation'] = portfolio_optimizer.recommend_allocation(amount, risk, horizon, market=market)
                 # Run Monte Carlo on the recommended allocation
@@ -1256,6 +1269,83 @@ def handle_market_advice(message: str, entities: Optional[Dict] = None) -> str:
             "**Key Indian Indices:** Nifty 50, Sensex\n"
             "**Major Sectors:** Banking, IT, FMCG, Pharma, Energy\n\n"
             "**Disclaimer:** This is not financial advice. Always do your own research."
+        )
+
+    # ---- FOREX RESPONSES ---- #
+    if market == 'forex':
+        return (
+            "## Forex Market Guide\n\n"
+            "### Major Pairs\n"
+            "| Pair | Description | Typical Volatility |\n"
+            "|------|-------------|-------------------|\n"
+            "| **EURUSD=X** | Euro / US Dollar | Medium |\n"
+            "| **GBPUSD=X** | British Pound / US Dollar | Medium-High |\n"
+            "| **USDJPY=X** | US Dollar / Japanese Yen | Medium |\n"
+            "| **USDINR=X** | US Dollar / Indian Rupee | Low-Medium |\n"
+            "| **AUDUSD=X** | Australian Dollar / US Dollar | Medium-High |\n\n"
+            "### Cross Pairs\n"
+            "| Pair | Description |\n"
+            "|------|-------------|\n"
+            "| **EURGBP=X** | Euro / British Pound |\n"
+            "| **EURJPY=X** | Euro / Japanese Yen |\n\n"
+            "### Ask next\n"
+            "- *\"Predict EURUSD=X\"* for ML-based forecast\n"
+            "- *\"Technical analysis of dollar rupee\"* for indicators\n\n"
+            "---\n\n"
+            "*Forex trading involves significant risk. Not financial advice.*"
+        )
+
+    # ---- CRYPTO RESPONSES ---- #
+    if market == 'crypto':
+        return (
+            "## Cryptocurrency Market Guide\n\n"
+            "### Top Cryptocurrencies\n"
+            "| Asset | Why it's notable | Risk |\n"
+            "|-------|-----------------|------|\n"
+            "| **BTC-USD** (Bitcoin) | Digital gold, largest market cap, institutional adoption | Medium-High |\n"
+            "| **ETH-USD** (Ethereum) | Smart contracts, DeFi ecosystem, staking | High |\n"
+            "| **SOL-USD** (Solana) | High-speed blockchain, growing DeFi/NFT ecosystem | High |\n"
+            "| **BNB-USD** (Binance Coin) | Exchange token, utility in Binance ecosystem | High |\n"
+            "| **XRP-USD** (Ripple) | Cross-border payments, institutional use case | High |\n"
+            "| **ADA-USD** (Cardano) | Research-driven blockchain, proof of stake | High |\n"
+            "| **DOGE-USD** (Dogecoin) | Meme coin with large community | Very High |\n\n"
+            "### Strategy buckets\n"
+            "- **Core holdings**: BTC-USD, ETH-USD (60-70%)\n"
+            "- **Growth alts**: SOL-USD, BNB-USD, XRP-USD (20-30%)\n"
+            "- **Speculative**: DOGE-USD, AVAX-USD (5-10%)\n\n"
+            "### Ask next\n"
+            "- *\"Predict bitcoin\"* or *\"Predict BTC-USD\"* for ML forecast\n"
+            "- *\"Technical analysis of ethereum\"* for indicators\n\n"
+            "---\n\n"
+            "*Crypto markets are extremely volatile. Not financial advice.*"
+        )
+
+    # ---- COMMODITY RESPONSES ---- #
+    if market == 'commodity':
+        return (
+            "## Commodity Futures Guide\n\n"
+            "### Precious Metals\n"
+            "| Asset | Symbol | Why it's notable |\n"
+            "|-------|--------|------------------|\n"
+            "| **Gold** | GC=F | Safe haven, inflation hedge, central bank demand |\n"
+            "| **Silver** | SI=F | Industrial + precious metal, higher volatility than gold |\n"
+            "| **Platinum** | PL=F | Industrial demand, automotive catalysts |\n\n"
+            "### Energy\n"
+            "| Asset | Symbol | Why it's notable |\n"
+            "|-------|--------|------------------|\n"
+            "| **Crude Oil (WTI)** | CL=F | Global energy benchmark, geopolitical sensitivity |\n"
+            "| **Natural Gas** | NG=F | Seasonal demand, weather-driven volatility |\n\n"
+            "### Agriculture\n"
+            "| Asset | Symbol | Why it's notable |\n"
+            "|-------|--------|------------------|\n"
+            "| **Corn** | ZC=F | Staple crop, ethanol demand |\n"
+            "| **Wheat** | ZW=F | Global food supply, geopolitical risks |\n"
+            "| **Soybeans** | ZS=F | Animal feed, biodiesel |\n\n"
+            "### Ask next\n"
+            "- *\"Predict gold\"* or *\"Predict GC=F\"* for ML forecast\n"
+            "- *\"Technical analysis of crude oil\"* for indicators\n\n"
+            "---\n\n"
+            "*Commodity futures carry substantial risk. Not financial advice.*"
         )
 
     # ---- US / GLOBAL RESPONSES ---- #

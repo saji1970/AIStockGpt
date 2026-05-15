@@ -55,6 +55,31 @@ SYMBOL_POOLS_INDIA = {
     ],
 }
 
+SYMBOL_POOLS_CRYPTO = {
+    'conservative': [
+        'BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD',
+    ],
+    'moderate': [
+        'BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD', 'XRP-USD', 'ADA-USD',
+    ],
+    'aggressive': [
+        'BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'DOT-USD', 'LINK-USD',
+        'DOGE-USD', 'XRP-USD', 'ADA-USD', 'BNB-USD',
+    ],
+}
+
+SYMBOL_POOLS_COMMODITY = {
+    'conservative': [
+        'GC=F', 'SI=F', 'GLD', 'BND',
+    ],
+    'moderate': [
+        'GC=F', 'SI=F', 'CL=F', 'HG=F', 'GLD',
+    ],
+    'aggressive': [
+        'GC=F', 'SI=F', 'CL=F', 'NG=F', 'HG=F', 'PL=F',
+    ],
+}
+
 # Default pool when no market specified - US-only (most common default)
 SYMBOL_POOLS = {
     'conservative': [
@@ -84,6 +109,16 @@ _STATIC_ALLOCATIONS = {
         'conservative': {'BND': 0.25, 'AGG': 0.15, 'VTI': 0.20, 'GLD': 0.15, 'VIG': 0.15, 'SCHD': 0.10},
         'moderate':     {'VTI': 0.20, 'QQQ': 0.15, 'AAPL': 0.15, 'MSFT': 0.15, 'BND': 0.15, 'GLD': 0.10, 'GOOGL': 0.10},
         'aggressive':   {'QQQ': 0.20, 'AAPL': 0.15, 'NVDA': 0.15, 'MSFT': 0.15, 'GOOGL': 0.10, 'AMZN': 0.10, 'TSLA': 0.10, 'META': 0.05},
+    },
+    'crypto': {
+        'conservative': {'BTC-USD': 0.50, 'ETH-USD': 0.30, 'BNB-USD': 0.10, 'SOL-USD': 0.10},
+        'moderate':     {'BTC-USD': 0.35, 'ETH-USD': 0.25, 'SOL-USD': 0.15, 'XRP-USD': 0.10, 'ADA-USD': 0.10, 'BNB-USD': 0.05},
+        'aggressive':   {'BTC-USD': 0.25, 'ETH-USD': 0.20, 'SOL-USD': 0.15, 'AVAX-USD': 0.10, 'DOT-USD': 0.10, 'LINK-USD': 0.10, 'DOGE-USD': 0.10},
+    },
+    'commodity': {
+        'conservative': {'GC=F': 0.40, 'SI=F': 0.30, 'CL=F': 0.15, 'HG=F': 0.15},
+        'moderate':     {'GC=F': 0.30, 'CL=F': 0.25, 'SI=F': 0.20, 'HG=F': 0.15, 'NG=F': 0.10},
+        'aggressive':   {'CL=F': 0.25, 'GC=F': 0.20, 'NG=F': 0.15, 'SI=F': 0.15, 'HG=F': 0.15, 'PL=F': 0.10},
     },
 }
 
@@ -232,6 +267,10 @@ class PortfolioOptimizer:
         # Select pool based on target market
         if market == 'india':
             pool = SYMBOL_POOLS_INDIA
+        elif market == 'crypto':
+            pool = SYMBOL_POOLS_CRYPTO
+        elif market == 'commodity':
+            pool = SYMBOL_POOLS_COMMODITY
         elif market == 'us':
             pool = SYMBOL_POOLS_US
         else:

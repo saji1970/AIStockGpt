@@ -90,14 +90,67 @@ INDIA_ALL = (
     + INDIA_HEALTH + INDIA_ENERGY_METALS + INDIA_TELECOM
 )
 
+# ── Forex Pairs ────────────────────────────────────────────
+FOREX = [
+    'EURUSD=X',    # Euro / US Dollar
+    'GBPUSD=X',    # British Pound / US Dollar
+    'USDJPY=X',    # US Dollar / Japanese Yen
+    'USDINR=X',    # US Dollar / Indian Rupee
+    'AUDUSD=X',    # Australian Dollar / US Dollar
+    'USDCAD=X',    # US Dollar / Canadian Dollar
+    'USDCHF=X',    # US Dollar / Swiss Franc
+    'NZDUSD=X',    # New Zealand Dollar / US Dollar
+    'EURGBP=X',    # Euro / British Pound
+    'EURJPY=X',    # Euro / Japanese Yen
+]
+
+# ── Commodity Futures ──────────────────────────────────────
+COMMODITIES = [
+    'GC=F',    # Gold futures
+    'SI=F',    # Silver futures
+    'CL=F',    # WTI Crude Oil futures
+    'NG=F',    # Natural Gas futures
+    'HG=F',    # Copper futures
+    'PL=F',    # Platinum futures
+    'ZC=F',    # Corn futures
+    'ZW=F',    # Wheat futures
+    'ZS=F',    # Soybean futures
+]
+
+# ── Money Market / Treasury Yields ──────────────────────────
+MONEY_MARKET = [
+    '^TNX',    # 10-Year Treasury Yield
+    '^IRX',    # 13-Week Treasury Bill Yield
+    '^FVX',    # 5-Year Treasury Yield
+    '^TYX',    # 30-Year Treasury Yield
+]
+
+# ── Cryptocurrency ──────────────────────────────────────────
+CRYPTO = [
+    'BTC-USD',     # Bitcoin
+    'ETH-USD',     # Ethereum
+    'SOL-USD',     # Solana
+    'BNB-USD',     # Binance Coin
+    'XRP-USD',     # Ripple
+    'ADA-USD',     # Cardano
+    'DOGE-USD',    # Dogecoin
+    'AVAX-USD',    # Avalanche
+    'DOT-USD',     # Polkadot
+    'LINK-USD',    # Chainlink
+]
+
 ALL_SYMBOLS = (
     TECH + FINANCE + CONSUMER + HEALTH + INDUSTRIAL + ENERGY
     + INDEX_ETFS + SECTOR_ETFS + BOND_ETFS + DIVIDEND_ETFS
     + HEDGE_FUND_ALTS + REAL_ESTATE_COMMODITY + INTERNATIONAL
     + INDIA_ALL
+    + FOREX + COMMODITIES + MONEY_MARKET + CRYPTO
 )
 
-QUICK_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'SPY', 'NVDA', 'JPM', 'AMZN', 'TSLA', 'META', 'QQQ']
+QUICK_SYMBOLS = [
+    'AAPL', 'MSFT', 'GOOGL', 'SPY', 'NVDA', 'JPM', 'AMZN', 'TSLA', 'META', 'QQQ',
+    'EURUSD=X', 'GC=F', '^TNX', 'BTC-USD',
+]
 
 
 def parse_args():

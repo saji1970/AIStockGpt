@@ -383,11 +383,16 @@ class XGBoostPredictor:
 
     # ── persistence ─────────────────────────────────────────────
 
+    @staticmethod
+    def _safe_filename(symbol: str) -> str:
+        """Sanitize symbol for safe filesystem paths: EURUSD=X -> EURUSD_X, ^TNX -> _TNX."""
+        return symbol.replace('=', '_').replace('^', '_')
+
     def save_model(self, symbol: str) -> bool:
         if symbol not in self.models:
             return False
         try:
-            path = os.path.join(self.models_dir, f'{symbol}_xgboost.joblib')
+            path = os.path.join(self.models_dir, f'{self._safe_filename(symbol)}_xgboost.joblib')
             bundle = self.models[symbol].copy()
             bundle['feature_cols'] = self.feature_cols.get(symbol, [])
             joblib.dump(bundle, path)
@@ -398,7 +403,7 @@ class XGBoostPredictor:
             return False
 
     def load_model(self, symbol: str) -> bool:
-        path = os.path.join(self.models_dir, f'{symbol}_xgboost.joblib')
+        path = os.path.join(self.models_dir, f'{self._safe_filename(symbol)}_xgboost.joblib')
         if os.path.exists(path):
             try:
                 data = joblib.load(path)

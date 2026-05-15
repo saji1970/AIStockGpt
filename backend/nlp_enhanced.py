@@ -376,6 +376,16 @@ STOCK_SYMBOLS = [
     'ONGC.BSE', 'NTPC.BSE', 'POWERGRID.BSE', 'BPCL.BSE', 'COALINDIA.BSE',
     'TATASTEEL.BSE', 'HINDALCO.BSE', 'JSWSTEEL.BSE',
     'BHARTIARTL.BSE', 'ADANIENT.BSE', 'ADANIPORTS.BSE',
+    # Forex Pairs
+    'EURUSD=X', 'GBPUSD=X', 'USDJPY=X', 'USDINR=X', 'AUDUSD=X',
+    'USDCAD=X', 'USDCHF=X', 'NZDUSD=X', 'EURGBP=X', 'EURJPY=X',
+    # Commodity Futures
+    'GC=F', 'SI=F', 'CL=F', 'NG=F', 'HG=F', 'PL=F', 'ZC=F', 'ZW=F', 'ZS=F',
+    # Money Market / Treasury Yields
+    '^TNX', '^IRX', '^FVX', '^TYX',
+    # Cryptocurrency
+    'BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD', 'XRP-USD',
+    'ADA-USD', 'DOGE-USD', 'AVAX-USD', 'DOT-USD', 'LINK-USD',
 ]
 
 # Tickers that match common English words when the user types lowercase ("low cost" -> LOW)
@@ -400,6 +410,8 @@ ALLOW_LOWER_TICKERS = frozenset({
     'aapl', 'msft', 'googl', 'goog', 'amzn', 'tsla', 'meta', 'fb', 'nvda', 'nflx',
     'spy', 'qqq', 'iwm', 'dia', 'voo', 'vti', 'amd', 'intc', 'mu', 'avgo',
     'pypl', 'coin', 'hood', 'sofi', 'pltr', 'rivn', 'lcid', 'f', 'gm',
+    # Crypto short tickers
+    'btc', 'eth', 'sol', 'bnb', 'xrp', 'ada', 'doge', 'avax', 'dot', 'link',
 })
 
 # Company name to symbol mapping (case-insensitive lookup)
@@ -467,6 +479,41 @@ COMPANY_NAME_MAP = {
     'bharti airtel': 'BHARTIARTL.BSE', 'airtel': 'BHARTIARTL.BSE',
     'adani enterprises': 'ADANIENT.BSE', 'adani': 'ADANIENT.BSE',
     'adani ports': 'ADANIPORTS.BSE',
+    # Forex
+    'euro dollar': 'EURUSD=X', 'eur usd': 'EURUSD=X', 'eurusd': 'EURUSD=X',
+    'pound dollar': 'GBPUSD=X', 'gbp usd': 'GBPUSD=X', 'gbpusd': 'GBPUSD=X', 'cable': 'GBPUSD=X',
+    'dollar yen': 'USDJPY=X', 'usd jpy': 'USDJPY=X', 'usdjpy': 'USDJPY=X',
+    'dollar rupee': 'USDINR=X', 'usd inr': 'USDINR=X', 'usdinr': 'USDINR=X',
+    'aussie dollar': 'AUDUSD=X', 'aud usd': 'AUDUSD=X', 'audusd': 'AUDUSD=X',
+    'dollar cad': 'USDCAD=X', 'usd cad': 'USDCAD=X', 'loonie': 'USDCAD=X',
+    'dollar franc': 'USDCHF=X', 'usd chf': 'USDCHF=X', 'swissie': 'USDCHF=X',
+    # Commodities
+    'gold': 'GC=F', 'gold futures': 'GC=F', 'xauusd': 'GC=F', 'gold price': 'GC=F',
+    'silver': 'SI=F', 'silver futures': 'SI=F', 'xagusd': 'SI=F',
+    'crude oil': 'CL=F', 'wti': 'CL=F', 'oil': 'CL=F', 'crude': 'CL=F', 'oil futures': 'CL=F',
+    'natural gas': 'NG=F', 'nat gas': 'NG=F', 'natgas': 'NG=F',
+    'copper': 'HG=F', 'copper futures': 'HG=F',
+    'platinum': 'PL=F', 'platinum futures': 'PL=F',
+    'corn': 'ZC=F', 'corn futures': 'ZC=F',
+    'wheat': 'ZW=F', 'wheat futures': 'ZW=F',
+    'soybean': 'ZS=F', 'soybeans': 'ZS=F',
+    # Money Market / Treasury
+    '10 year treasury': '^TNX', '10y treasury': '^TNX', '10 year yield': '^TNX',
+    '13 week treasury': '^IRX', 't bill': '^IRX', 'tbill': '^IRX',
+    '5 year treasury': '^FVX', '5y treasury': '^FVX',
+    '30 year treasury': '^TYX', '30y treasury': '^TYX',
+    'treasury yield': '^TNX',
+    # Crypto
+    'bitcoin': 'BTC-USD', 'btc': 'BTC-USD',
+    'ethereum': 'ETH-USD', 'eth': 'ETH-USD', 'ether': 'ETH-USD',
+    'solana': 'SOL-USD', 'sol': 'SOL-USD',
+    'binance coin': 'BNB-USD', 'bnb': 'BNB-USD',
+    'ripple': 'XRP-USD', 'xrp': 'XRP-USD',
+    'cardano': 'ADA-USD', 'ada': 'ADA-USD',
+    'dogecoin': 'DOGE-USD', 'doge': 'DOGE-USD',
+    'avalanche': 'AVAX-USD', 'avax': 'AVAX-USD',
+    'polkadot': 'DOT-USD', 'dot': 'DOT-USD',
+    'chainlink': 'LINK-USD', 'link': 'LINK-USD',
 }
 
 
@@ -690,7 +737,26 @@ class EnhancedNLPProcessor:
                 continue
             found.append(sym)
 
-        # 3. Pattern-based extraction from original message (US symbols)
+        # 3. Special symbols: forex (=X), commodity (=F), crypto (-USD), treasury (^)
+        upper_msg = original.upper()
+        for m in re.finditer(r'\b([A-Z]{3,6}=X)\b', upper_msg):
+            sym = m.group(1)
+            if sym in STOCK_SYMBOLS and sym not in found:
+                found.append(sym)
+        for m in re.finditer(r'\b([A-Z]{2,4}=F)\b', upper_msg):
+            sym = m.group(1)
+            if sym in STOCK_SYMBOLS and sym not in found:
+                found.append(sym)
+        for m in re.finditer(r'\b([A-Z]{2,5}-USD)\b', upper_msg):
+            sym = m.group(1)
+            if sym in STOCK_SYMBOLS and sym not in found:
+                found.append(sym)
+        for m in re.finditer(r'\^([A-Z]{2,4})\b', original):
+            sym = f'^{m.group(1)}'
+            if sym in STOCK_SYMBOLS and sym not in found:
+                found.append(sym)
+
+        # 4. Pattern-based extraction from original message (US symbols)
         symbol_patterns = [
             r"([A-Z]{1,10}(?:\.[A-Z]{1,4})?)\s+stock",
             r"stock\s+([A-Z]{1,10}(?:\.[A-Z]{1,4})?)",
@@ -700,7 +766,7 @@ class EnhancedNLPProcessor:
         ]
 
         for pattern in symbol_patterns:
-            for match in re.findall(pattern, original.upper()):
+            for match in re.findall(pattern, upper_msg):
                 if match not in found:
                     found.append(match)
 
@@ -780,7 +846,10 @@ class EnhancedNLPProcessor:
         return None
 
     def _extract_market(self, message: str) -> Optional[str]:
-        """Detect target market (india or us) from the message."""
+        """Detect target market (india, us, forex, commodity, crypto) from the message."""
+        forex_keywords = ['forex', 'fx market', 'currency pair', 'exchange rate']
+        commodity_keywords = ['commodity', 'commodities', 'futures']
+        crypto_keywords = ['crypto', 'cryptocurrency', 'defi', 'blockchain']
         india_keywords = [
             'india', 'indian', 'nifty', 'sensex', 'bse', 'nse',
             'rupee', 'rupees', 'inr', '₹', ' rs ', ' rs.',
@@ -790,6 +859,15 @@ class EnhancedNLPProcessor:
             ' us ', ' usa ', 'united states', 'american', 'wall street',
             'nasdaq', 'nyse', 's&p', 's p 500', 'dow jones',
         ]
+        for kw in forex_keywords:
+            if kw in message:
+                return 'forex'
+        for kw in commodity_keywords:
+            if kw in message:
+                return 'commodity'
+        for kw in crypto_keywords:
+            if kw in message:
+                return 'crypto'
         for kw in india_keywords:
             if kw in message:
                 return 'india'

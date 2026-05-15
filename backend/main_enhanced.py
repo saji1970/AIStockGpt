@@ -868,7 +868,7 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
         # XGBoost prediction for ANY query with a symbol
         if symbol and feature_pipeline and xgboost_predictor:
             try:
-                features = feature_pipeline.build_features(symbol)
+                features = feature_pipeline.build_features(symbol, include_live_bar=True)
                 ml_results['prediction'] = xgboost_predictor.predict(symbol, features)
             except Exception as e:
                 logger.warning(f"XGBoost prediction failed for {symbol}: {e}")
@@ -1543,7 +1543,7 @@ async def predict_stock(
         # Try enhanced ensemble model first
         if feature_pipeline and xgboost_predictor:
             try:
-                features = feature_pipeline.build_features(symbol)
+                features = feature_pipeline.build_features(symbol, include_live_bar=True)
                 prediction = xgboost_predictor.predict(symbol, features)
                 # Save to database
                 if current_user and ENHANCED_MODULES_AVAILABLE:
@@ -2179,7 +2179,7 @@ if not ENHANCED_MODULES_AVAILABLE:
             # Try enhanced ensemble model first
             if feature_pipeline and xgboost_predictor:
                 try:
-                    features = feature_pipeline.build_features(symbol)
+                    features = feature_pipeline.build_features(symbol, include_live_bar=True)
                     prediction = xgboost_predictor.predict(symbol, features)
                     return {
                         "symbol": symbol,

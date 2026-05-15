@@ -86,9 +86,11 @@ class FeaturePipeline:
 
     # ── public API ──────────────────────────────────────────────
 
-    def build_features(self, symbol: str, lookback_days: int = 504) -> pd.DataFrame:
+    def build_features(self, symbol: str, lookback_days: int = 504,
+                       include_live_bar: bool = False) -> pd.DataFrame:
         """Fetch price data, compute all features, return clean DataFrame."""
-        df = self._fetch_price_data(symbol, lookback_days)
+        df = self._fetch_price_data(symbol, lookback_days,
+                                    include_live_bar=include_live_bar)
 
         if df.empty:
             raise ValueError(f"No price data available for {symbol}")
@@ -121,6 +123,8 @@ class FeaturePipeline:
         if has_volume:
             df = self._add_volume_features(df)
         df = self._add_gap_features(df)
+        df = self._add_candlestick_features(df)
+        df = self._add_recent_price_action_features(df, has_volume=has_volume)
         df = self._add_crossover_signals(df)
         df = self._add_regime_features(df, ann_factor=ann_factor)
         df = self._add_lag_features(df, has_volume=has_volume)
@@ -204,7 +208,8 @@ class FeaturePipeline:
 
     # ── data fetching ───────────────────────────────────────────
 
-    def _fetch_price_data(self, symbol: str, lookback_days: int) -> pd.DataFrame:
+    def _fetch_price_data(self, symbol: str, lookback_days: int,
+                          include_live_bar: bool = False) -> pd.DataFrame:
         df = pd.DataFrame()
         if self.av_collector:
             try:
@@ -223,6 +228,54 @@ class FeaturePipeline:
                 logger.info(f"Feature data source for {symbol}: yfinance ({yf_sym})")
             except Exception as e:
                 logger.warning(f"yfinance fetch failed for {symbol}: {e}")
+
+        # Append or update today's live bar from Alpha Vantage GLOBAL_QUOTE
+        if include_live_bar and self.av_collector and not df.empty:
+            df = self._merge_live_bar(df, symbol)
+
+        return df
+
+    def _merge_live_bar(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+        """Merge today's live GLOBAL_QUOTE data into the historical DataFrame."""
+        try:
+            quote = self.av_collector.get_quote(symbol)
+            if not quote or not quote.get('price'):
+                return df
+
+            today = pd.Timestamp.now().normalize()
+
+            live_row = pd.DataFrame({
+                'Open': [quote.get('open', quote['price'])],
+                'High': [quote.get('high', quote['price'])],
+                'Low': [quote.get('low', quote['price'])],
+                'Close': [quote['price']],
+                'Volume': [quote.get('volume', 0)],
+            }, index=[today])
+
+            # Flag column: 0 for historical, 1 for live
+            df['is_live_bar'] = 0
+
+            # Normalize index for comparison
+            df.index = pd.to_datetime(df.index)
+
+            if today in df.index:
+                # Update existing today's row with live data
+                for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                    lc = col.lower()
+                    if lc in df.columns:
+                        df.loc[today, lc] = live_row[col].iloc[0]
+                    elif col in df.columns:
+                        df.loc[today, col] = live_row[col].iloc[0]
+                df.loc[today, 'is_live_bar'] = 1
+            else:
+                # Append new row for today
+                live_row.columns = [c.lower() for c in live_row.columns]
+                live_row['is_live_bar'] = 1
+                df = pd.concat([df, live_row])
+
+            logger.info(f"Live bar merged for {symbol}: ${quote['price']}")
+        except Exception as e:
+            logger.warning(f"Failed to merge live bar for {symbol}: {e}")
 
         return df
 
@@ -471,6 +524,92 @@ class FeaturePipeline:
             ((df['gap_pct'] < 0) & (df['high'] >= df['close'].shift(1)))
         ).astype(float)
         df['avg_gap_5d'] = df['gap_pct'].rolling(5).mean()
+
+        return df
+
+    # ── candlestick shape features ─────────────────────────────
+
+    def _add_candlestick_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Daily bar shape features — captures conviction, indecision, and rejection."""
+        open_, high, low, close = df['open'], df['high'], df['low'], df['close']
+        day_range = (high - low).replace(0, np.nan)
+
+        # Signed intraday return
+        df['body_pct'] = (close - open_) / open_.replace(0, np.nan)
+
+        # Body as fraction of day's range (1 = full conviction, 0 = doji)
+        df['body_range_ratio'] = (close - open_).abs() / day_range
+
+        # Upper/lower shadow as fraction of range
+        body_top = pd.concat([close, open_], axis=1).max(axis=1)
+        body_bottom = pd.concat([close, open_], axis=1).min(axis=1)
+        df['upper_shadow_pct'] = (high - body_top) / day_range
+        df['lower_shadow_pct'] = (body_bottom - low) / day_range
+
+        # Where close sits in day's range (0 = at low, 1 = at high)
+        df['close_position'] = (close - low) / day_range
+
+        # Full day range as percentage of close
+        df['range_pct'] = (high - low) / close.replace(0, np.nan)
+
+        # Range expansion: today's range vs 5-day avg range
+        avg_range_5 = (high - low).rolling(5).mean().replace(0, np.nan)
+        df['range_expansion'] = (high - low) / avg_range_5
+
+        # Range contraction/squeeze: 5d range std vs 20d range std
+        range_series = high - low
+        std_5 = range_series.rolling(5).std()
+        std_20 = range_series.rolling(20).std().replace(0, np.nan)
+        df['range_contraction_5d'] = std_5 / std_20
+
+        return df
+
+    # ── recent price action features ─────────────────────────
+
+    def _add_recent_price_action_features(self, df: pd.DataFrame,
+                                           has_volume: bool = True) -> pd.DataFrame:
+        """Two-day patterns and volume confirmation signals."""
+        open_, high, low, close = df['open'], df['high'], df['low'], df['close']
+        prev_close = close.shift(1)
+        day_range = (high - low).replace(0, np.nan)
+
+        # Fraction of move from overnight gap vs intraday
+        total_move = (close - prev_close).abs().replace(0, np.nan)
+        gap = (open_ - prev_close).abs()
+        df['overnight_vs_intraday'] = gap / total_move
+
+        # 2-day compound return (fills gap between return_1d and return_5d)
+        df['two_day_return'] = close.pct_change(2)
+
+        # 2-day combined range vs 10-day average range
+        range_2d = (high - low) + (high.shift(1) - low.shift(1))
+        avg_range_10 = (high - low).rolling(10).mean().replace(0, np.nan)
+        df['two_day_range_ratio'] = range_2d / (2 * avg_range_10)
+
+        # Yesterday's close position (lagged)
+        prev_day_range = (high.shift(1) - low.shift(1)).replace(0, np.nan)
+        df['prev_close_position'] = (prev_close - low.shift(1)) / prev_day_range
+
+        # Did candle direction flip from yesterday?
+        body_dir = np.sign(close - open_)
+        prev_body_dir = body_dir.shift(1)
+        df['body_reversal'] = (body_dir != prev_body_dir).astype(float)
+
+        # Streak of same-direction candles
+        flipped = (body_dir != body_dir.shift()).cumsum()
+        df['consecutive_body_dir'] = body_dir.groupby(flipped).cumcount() + 1
+        df['consecutive_body_dir'] = df['consecutive_body_dir'] * body_dir
+
+        # Volume-price confirmation signals (only when volume is available)
+        if has_volume and 'volume' in df.columns:
+            volume = df['volume']
+            vol_ma5 = volume.rolling(5).mean().replace(0, np.nan)
+            # Signed volume-price confirmation: positive when vol and price agree
+            df['vol_body_confirm'] = np.sign(close - open_) * (volume / vol_ma5)
+
+            # Combined volume-range expansion signal
+            range_ma5 = (high - low).rolling(5).mean().replace(0, np.nan)
+            df['vol_range_ratio'] = (volume / vol_ma5) * ((high - low) / range_ma5)
 
         return df
 

@@ -43,6 +43,7 @@ class XGBoostPredictor:
     EXCLUDED_COLS = frozenset([
         'open', 'high', 'low', 'close', 'volume',
         'dividends', 'stock_splits', 'capital_gains',
+        'is_live_bar',
     ])
 
     def __init__(self, models_dir: str = 'models'):

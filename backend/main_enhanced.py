@@ -167,12 +167,14 @@ av_collector = None
 class ChatRequest(BaseModel):
     message: str = Field(..., description="User message")
     timestamp: Optional[str] = Field(None, description="Message timestamp")
+    session_id: Optional[str] = Field(None, description="Learn session ID for multi-turn @learn")
 
 class ChatResponse(BaseModel):
     message: str = Field(..., description="AI response")
     stockData: Optional[Dict[str, Any]] = Field(None, description="Stock analysis data")
     charts: Optional[Dict[str, Any]] = Field(None, description="Chart data")
     confidence: Optional[float] = Field(None, description="Model confidence")
+    session_id: Optional[str] = Field(None, description="Learn session ID (non-null during @learn)")
 
 class PredictionRequest(BaseModel):
     symbol: str = Field(..., description="Stock symbol")
@@ -514,6 +516,82 @@ def _is_stock_ideas_message(text: str) -> bool:
     return any(re.search(p, t) for p in _STOCK_IDEAS_PATTERNS)
 
 
+# ---------------------------------------------------------------------------
+# @learn command detection & inline parsing
+# ---------------------------------------------------------------------------
+import re as _re_learn
+
+def _is_learn_command(text: str) -> bool:
+    """Detect @learn at the start of a message or after whitespace."""
+    return bool(re.search(r'(?:^|\s)@learn\b', (text or ''), re.IGNORECASE))
+
+def _is_cancel_command(text: str) -> bool:
+    """Detect cancel/quit/exit during a @learn session."""
+    t = (text or '').strip().lower()
+    return t in ('cancel', 'quit', 'exit', '@cancel', 'stop', 'nevermind')
+
+def _extract_inline_learn_info(text: str) -> Dict[str, Any]:
+    """Parse as much as possible from a single @learn message.
+    e.g. '@learn AAPL predicted bullish last week but dropped, earnings miss'
+    Returns dict with keys: symbols, direction_error, date_hint, context_hint
+    """
+    t = (text or '')
+    # Remove the @learn prefix
+    t_clean = re.sub(r'(?:^|\s)@learn\s*', ' ', t, flags=re.IGNORECASE).strip()
+
+    info: Dict[str, Any] = {
+        'symbols': [],
+        'direction_error': None,
+        'date_hint': None,
+        'context_hint': None,
+    }
+
+    # Extract symbols (1-5 uppercase letters, optionally with .BSE, =X, =F, -USD suffixes)
+    sym_pattern = r'\b([A-Z]{1,5}(?:\.[A-Z]{2,4})?(?:[-=][A-Z]+)?)\b'
+    # Exclude common English words that look like tickers
+    _STOP_WORDS = {'I', 'A', 'IT', 'IS', 'AT', 'IN', 'ON', 'TO', 'DO', 'GO',
+                    'UP', 'SO', 'IF', 'OR', 'AN', 'AS', 'BY', 'WE', 'MY', 'NO',
+                    'OF', 'BE', 'HE', 'ME', 'OK', 'THE', 'BUT', 'AND', 'FOR',
+                    'NOT', 'YOU', 'ALL', 'CAN', 'HAS', 'HER', 'WAS', 'ONE',
+                    'OUR', 'OUT', 'ARE', 'HIS', 'HAD', 'HOW', 'ITS', 'MAY',
+                    'NEW', 'NOW', 'OLD', 'SEE', 'WAY', 'WHO', 'DID', 'GET',
+                    'HIM', 'LET', 'SAY', 'SHE', 'TOO', 'USE', 'WENT', 'SAID',
+                    'WEEK', 'LAST', 'WHEN', 'WHAT', 'WRONG', 'DROP', 'FELL',
+                    'MISS', 'DOWN', 'ROSE', 'SKIP', 'NONE', 'YES'}
+    for m in re.finditer(sym_pattern, t):
+        sym = m.group(1)
+        if sym not in _STOP_WORDS and len(sym) >= 2:
+            info['symbols'].append(sym)
+
+    # Direction error
+    t_lower = t_clean.lower()
+    if re.search(r'bullish.*(?:drop|fell|went\s+(?:down|bearish)|bear|crash|lost|decline)', t_lower):
+        info['direction_error'] = 'bullish_went_bearish'
+    elif re.search(r'bearish.*(?:rose|went\s+(?:up|bullish)|bull|gain|rally|surge)', t_lower):
+        info['direction_error'] = 'bearish_went_bullish'
+
+    # Date hints
+    if re.search(r'last\s+week', t_lower):
+        info['date_hint'] = 'last_week'
+    elif re.search(r'last\s+month', t_lower):
+        info['date_hint'] = 'last_month'
+    elif re.search(r'yesterday', t_lower):
+        info['date_hint'] = 'yesterday'
+    else:
+        date_match = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', t_clean)
+        if date_match:
+            info['date_hint'] = date_match.group(1)
+
+    # Context hint: anything after a comma or "because" / "due to"
+    ctx_match = re.search(r'(?:because|due\s+to|,)\s*(.+?)$', t_clean, re.IGNORECASE)
+    if ctx_match:
+        ctx = ctx_match.group(1).strip().rstrip('.')
+        if len(ctx) > 2:
+            info['context_hint'] = ctx
+
+    return info
+
+
 def _format_growth_value_screening_markdown(india: bool) -> str:
     """ChatGPT-style structured answer: criteria + table + categories + follow-ups."""
     if india:
@@ -790,9 +868,388 @@ def _format_under_price_screening_inr(cap: float) -> str:
     )
 
 
-def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, Any]:
+# ---------------------------------------------------------------------------
+# @learn multi-turn handler
+# ---------------------------------------------------------------------------
+from backend.learn_session import (
+    create_session, get_session, update_session, delete_session, session_exists,
+)
+
+def _is_trained_symbol(symbol: str) -> bool:
+    """Check if a trained model exists for the symbol."""
+    safe = symbol.replace('=', '_').replace('^', '_')
+    return os.path.exists(os.path.join('models', f'{safe}_xgboost.joblib'))
+
+
+def _resolve_date_range(hint: Optional[str]):
+    """Convert a date hint string into (start_date, end_date) strings."""
+    from datetime import date, timedelta as _td
+    today = date.today()
+    if not hint or hint == 'last_month':
+        start = today - _td(days=30)
+        return str(start), str(today)
+    if hint == 'last_week':
+        start = today - _td(days=7)
+        return str(start), str(today)
+    if hint == 'yesterday':
+        yest = today - _td(days=1)
+        return str(yest), str(today)
+    # Try parsing YYYY-MM-DD
+    try:
+        from datetime import datetime as _dt
+        d = _dt.strptime(hint, '%Y-%m-%d').date()
+        return str(d), str(today)
+    except Exception:
+        # Default to last 30 days
+        start = today - _td(days=30)
+        return str(start), str(today)
+
+
+def _learn_do_retrospect(sess: Dict) -> str:
+    """Build a retrospective analysis for the symbol(s) in the session."""
+    lines = []
+    for symbol in sess.get('symbols', []):
+        try:
+            # Build features to get actual price data and current prediction
+            features = feature_pipeline.build_features(symbol, include_live_bar=True)
+
+            date_range = sess.get('date_range')
+            if date_range:
+                start_str, end_str = date_range
+            else:
+                start_str, end_str = _resolve_date_range(None)
+
+            import pandas as _pd
+            start_dt = _pd.Timestamp(start_str)
+            end_dt = _pd.Timestamp(end_str)
+
+            # Get price data in the date range
+            mask = (features.index >= start_dt) & (features.index <= end_dt)
+            period_data = features.loc[mask]
+
+            if period_data.empty:
+                lines.append(f"### {symbol}\nNo data available for {start_str} to {end_str}.\n")
+                continue
+
+            # Actual move
+            start_close = float(period_data['close'].iloc[0])
+            end_close = float(period_data['close'].iloc[-1])
+            actual_return = (end_close - start_close) / start_close
+            actual_dir = 'bullish (up)' if actual_return >= 0 else 'bearish (down)'
+
+            # Current model prediction
+            prediction = xgboost_predictor.predict(symbol, features)
+            model_dir = prediction['direction']
+            model_prob = prediction['probability']
+            top_features = prediction.get('feature_importance', {})
+
+            # Direction error context
+            dir_error = sess.get('direction_error', '')
+            if dir_error == 'bullish_went_bearish':
+                error_desc = 'Model predicted **bullish** but price went **bearish**'
+            elif dir_error == 'bearish_went_bullish':
+                error_desc = 'Model predicted **bearish** but price went **bullish**'
+            else:
+                error_desc = f'Model predicted **{model_dir}** — actual was **{actual_dir}**'
+
+            # Identify potentially misleading features
+            misleading = []
+            feat_names = list(top_features.keys())[:5]
+            for fn in feat_names:
+                if fn in period_data.columns:
+                    val = float(period_data[fn].iloc[-1]) if not period_data[fn].isna().all() else None
+                    if val is not None:
+                        misleading.append(f"  - **{fn}** = {val:.4f} (importance: {top_features[fn]:.4f})")
+
+            user_ctx = sess.get('user_context')
+            ctx_note = ''
+            if user_ctx and user_ctx.lower() not in ('skip', 'none', 'n/a'):
+                ctx_note = (
+                    f"\n**Your context:** {user_ctx} — the model currently has no explicit "
+                    f"event/catalyst feature, so it couldn't anticipate this.\n"
+                )
+
+            lines.append(
+                f"### Retrospective for {symbol} ({start_str} to {end_str})\n\n"
+                f"- {error_desc}\n"
+                f"- Current model signal: **{model_dir}** ({model_prob:.0%} probability)\n"
+                f"- Actual price move over period: **{actual_return:+.2%}** "
+                f"(${start_close:,.2f} → ${end_close:,.2f})\n\n"
+                f"**Top features that may have misled the model:**\n"
+                + ('\n'.join(misleading) if misleading else '  - (feature data not available)')
+                + '\n'
+                + ctx_note
+            )
+
+        except Exception as e:
+            lines.append(f"### {symbol}\nCould not run retrospective: {e}\n")
+
+    return '\n'.join(lines)
+
+
+def _trigger_retrain(symbols: list) -> str:
+    """POST to the training pipeline server to retrain specific symbols."""
+    import urllib.request
+    import urllib.error
+    syms_csv = ','.join(symbols)
+    url = f'http://127.0.0.1:8090/train?symbols={syms_csv}'
+    try:
+        req = urllib.request.Request(url, method='POST')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        return (
+            f"Retraining **{syms_csv}** triggered successfully.\n"
+            f"Check progress: `curl http://localhost:8090/status`"
+        )
+    except urllib.error.URLError:
+        return (
+            f"Could not reach the training server at `localhost:8090`.\n"
+            f"Start it with `python train_pipe.py`, then retry."
+        )
+    except Exception as e:
+        return f"Retrain request failed: {e}"
+
+
+def _save_learn_feedback(sess: Dict, retrained: bool) -> None:
+    """Append feedback record to models/learn_feedback.json."""
+    record = {
+        'timestamp': datetime.now().isoformat(),
+        'symbols': sess.get('symbols', []),
+        'direction_error': sess.get('direction_error'),
+        'date_range': sess.get('date_range'),
+        'user_context': sess.get('user_context'),
+        'retrained': retrained,
+    }
+    fb_path = os.path.join('models', 'learn_feedback.json')
+    try:
+        existing = []
+        if os.path.exists(fb_path):
+            with open(fb_path, 'r') as f:
+                existing = json.load(f)
+        existing.append(record)
+        with open(fb_path, 'w') as f:
+            json.dump(existing, f, indent=2, default=str)
+    except Exception as e:
+        logger.warning(f"Failed to save learn feedback: {e}")
+
+
+def _handle_learn_message(message: str, user_id: Optional[str] = None,
+                          session_id: Optional[str] = None) -> Dict[str, Any]:
+    """Multi-turn @learn conversation handler. Returns a ChatResponse-shaped dict."""
+
+    key = session_id or user_id or None
+    sess = get_session(key) if key else None
+
+    # Cancel at any step
+    if sess and _is_cancel_command(message):
+        delete_session(key)
+        return {
+            'message': 'Learning session cancelled.',
+            'stockData': None, 'charts': None, 'confidence': None, 'session_id': None,
+        }
+
+    # New @learn command — create session and try to parse inline info
+    if sess is None:
+        inline = _extract_inline_learn_info(message)
+        key, sess = create_session(key)
+
+        # Pre-fill whatever was parsed inline
+        if inline['symbols']:
+            valid = [s for s in inline['symbols'] if _is_trained_symbol(s)]
+            if valid:
+                sess['symbols'] = valid
+                sess['step'] = 'ask_direction'
+        if inline['direction_error'] and sess['step'] == 'ask_direction':
+            sess['direction_error'] = inline['direction_error']
+            sess['step'] = 'ask_timeframe'
+        if inline['date_hint'] and sess['step'] == 'ask_timeframe':
+            sess['date_range'] = _resolve_date_range(inline['date_hint'])
+            sess['step'] = 'ask_context'
+        if inline['context_hint'] and sess['step'] == 'ask_context':
+            sess['user_context'] = inline['context_hint']
+            sess['step'] = 'confirm_retrain'
+
+    step = sess['step']
+
+    # ── ask_symbol ────────────────────────────────────────────
+    if step == 'ask_symbol':
+        # Try extracting symbols from the current message
+        sym_pattern = r'\b([A-Z]{1,5}(?:\.[A-Z]{2,4})?(?:[-=][A-Z]+)?)\b'
+        _STOP = {'I', 'A', 'IT', 'IS', 'AT', 'IN', 'ON', 'TO', 'DO', 'UP',
+                 'SO', 'IF', 'OR', 'AN', 'AS', 'BY', 'WE', 'MY', 'NO', 'OF',
+                 'BE', 'OK', 'THE', 'BUT', 'AND', 'FOR', 'NOT', 'YOU', 'ALL',
+                 'CAN', 'HAS', 'WAS', 'ONE', 'ARE', 'HOW', 'ITS', 'MAY',
+                 'NOW', 'WHO', 'DID', 'GET', 'LET', 'SAY', 'TOO', 'USE',
+                 'YES', 'WHAT', 'WHEN', 'LAST', 'WEEK', 'NONE', 'SKIP'}
+        found = [m.group(1) for m in re.finditer(sym_pattern, message)
+                 if m.group(1) not in _STOP and len(m.group(1)) >= 2]
+        valid = [s for s in found if _is_trained_symbol(s)]
+
+        if valid:
+            update_session(key, {'symbols': valid, 'step': 'ask_direction'})
+            syms_str = ', '.join(valid)
+            return {
+                'message': (
+                    f"Got it — looking at **{syms_str}**.\n\n"
+                    f"What happened? Did the model predict bullish when it went bearish, "
+                    f"or bearish when it went bullish?\n\n"
+                    f"*(bullish went bearish / bearish went bullish)*"
+                ),
+                'stockData': None, 'charts': None, 'confidence': None,
+                'session_id': key,
+            }
+        else:
+            return {
+                'message': (
+                    "Which symbol(s) did the model get wrong?\n\n"
+                    "Type the ticker symbol(s) — e.g. **AAPL**, **TSLA**, **BTC-USD**.\n\n"
+                    "*(Type 'cancel' to exit)*"
+                ),
+                'stockData': None, 'charts': None, 'confidence': None,
+                'session_id': key,
+            }
+
+    # ── ask_direction ─────────────────────────────────────────
+    if step == 'ask_direction':
+        t = message.lower()
+        direction = None
+        if re.search(r'bullish.*bear|up.*down|bull.*drop|bull.*fell|bull.*crash', t):
+            direction = 'bullish_went_bearish'
+        elif re.search(r'bearish.*bull|down.*up|bear.*rose|bear.*rally|bear.*gain', t):
+            direction = 'bearish_went_bullish'
+        elif 'bullish' in t or 'up' in t or 'rose' in t:
+            # If they just say the actual outcome
+            direction = 'bearish_went_bullish'
+        elif 'bearish' in t or 'down' in t or 'drop' in t or 'fell' in t:
+            direction = 'bullish_went_bearish'
+
+        if direction:
+            update_session(key, {'direction_error': direction, 'step': 'ask_timeframe'})
+            return {
+                'message': (
+                    "When did this happen?\n\n"
+                    "Examples: **last week**, **last month**, **yesterday**, "
+                    "**2026-05-10**, or a range like **May 5-12**.\n\n"
+                    "*(Type 'cancel' to exit)*"
+                ),
+                'stockData': None, 'charts': None, 'confidence': None,
+                'session_id': key,
+            }
+        else:
+            return {
+                'message': (
+                    "I didn't catch the direction. What happened?\n\n"
+                    "- The model said **bullish** but the price **dropped** (bearish)\n"
+                    "- The model said **bearish** but the price **rose** (bullish)\n\n"
+                    "*(Type one of the options above, or 'cancel' to exit)*"
+                ),
+                'stockData': None, 'charts': None, 'confidence': None,
+                'session_id': key,
+            }
+
+    # ── ask_timeframe ─────────────────────────────────────────
+    if step == 'ask_timeframe':
+        t = message.lower().strip()
+        hint = None
+        if 'last week' in t:
+            hint = 'last_week'
+        elif 'last month' in t:
+            hint = 'last_month'
+        elif 'yesterday' in t:
+            hint = 'yesterday'
+        else:
+            date_match = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', message)
+            if date_match:
+                hint = date_match.group(1)
+            elif t in ('recent', 'recently', 'this week', 'past week'):
+                hint = 'last_week'
+            else:
+                hint = 'last_month'  # Default
+
+        date_range = _resolve_date_range(hint)
+        update_session(key, {'date_range': date_range, 'step': 'ask_context'})
+        return {
+            'message': (
+                f"Looking at **{date_range[0]}** to **{date_range[1]}**.\n\n"
+                f"Any context you noticed? (earnings miss, sector sell-off, "
+                f"news event, Fed announcement, etc.)\n\n"
+                f"*(Type your observation, or 'skip' if none)*"
+            ),
+            'stockData': None, 'charts': None, 'confidence': None,
+            'session_id': key,
+        }
+
+    # ── ask_context ───────────────────────────────────────────
+    if step == 'ask_context':
+        ctx = message.strip()
+        if ctx.lower() in ('skip', 'none', 'n/a', 'no', 'nothing'):
+            ctx = None
+        update_session(key, {'user_context': ctx, 'step': 'confirm_retrain'})
+
+        # Run retrospective analysis
+        sess = get_session(key)
+        retro = _learn_do_retrospect(sess)
+        update_session(key, {'retrospect_text': retro})
+
+        syms_str = ', '.join(sess['symbols'])
+        return {
+            'message': (
+                f"{retro}\n\n---\n\n"
+                f"Shall I retrain the model for **{syms_str}** with the latest data?\n\n"
+                f"*(yes / no)*"
+            ),
+            'stockData': None, 'charts': None, 'confidence': None,
+            'session_id': key,
+        }
+
+    # ── confirm_retrain ───────────────────────────────────────
+    if step == 'confirm_retrain':
+        t = message.strip().lower()
+        sess = get_session(key)
+        if t in ('yes', 'y', 'sure', 'ok', 'do it', 'retrain', 'train'):
+            retrain_msg = _trigger_retrain(sess['symbols'])
+            _save_learn_feedback(sess, retrained=True)
+            delete_session(key)
+            return {
+                'message': (
+                    f"{retrain_msg}\n\n"
+                    f"Your feedback has been saved for future reference. Thank you!"
+                ),
+                'stockData': None, 'charts': None, 'confidence': None,
+                'session_id': None,
+            }
+        else:
+            _save_learn_feedback(sess, retrained=False)
+            delete_session(key)
+            return {
+                'message': (
+                    "No problem — feedback saved without retraining.\n\n"
+                    "You can retrain anytime with "
+                    "`curl -X POST \"http://localhost:8090/train?symbols="
+                    + ','.join(sess['symbols']) + "\"`"
+                ),
+                'stockData': None, 'charts': None, 'confidence': None,
+                'session_id': None,
+            }
+
+    # Fallback
+    delete_session(key)
+    return {
+        'message': 'Learning session reset. Type **@learn** to start again.',
+        'stockData': None, 'charts': None, 'confidence': None, 'session_id': None,
+    }
+
+
+def generate_response(message: str, user_id: Optional[str] = None,
+                      session_id: Optional[str] = None) -> Dict[str, Any]:
     """Generate AI response to user message using NLP + ML Engine + LLM + live stock data."""
     try:
+        # ---- @learn intercept (before NLP) ---- #
+        learn_key = session_id or user_id
+        active_learn = get_session(learn_key) if learn_key else None
+        if _is_learn_command(message) or active_learn is not None:
+            return _handle_learn_message(message, user_id=user_id, session_id=session_id)
+
         if nlp_processor is None:
             initialize_nlp()
 
@@ -1521,8 +1978,9 @@ async def chat(
         user_id = current_user["id"] if current_user else None
 
         # Generate response
-        response = generate_response(request.message, user_id)
-        
+        response = generate_response(request.message, user_id,
+                                     session_id=request.session_id)
+
         return ChatResponse(**response)
     except Exception as e:
         logger.error(f"Chat error: {e}")
@@ -2165,7 +2623,8 @@ if not ENHANCED_MODULES_AVAILABLE:
     async def chat_fallback(request: ChatRequest):
         """Fallback chat endpoint without authentication."""
         try:
-            response = generate_response(request.message)
+            response = generate_response(request.message,
+                                         session_id=request.session_id)
             return ChatResponse(**response)
         except Exception as e:
             logger.error(f"Chat error: {e}")

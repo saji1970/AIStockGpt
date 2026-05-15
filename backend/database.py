@@ -483,6 +483,26 @@ class DatabaseManager:
     # Analytics and Reporting
     # ------------------------------------------------------------------ #
 
+    def get_predictions_for_symbol(self, symbol: str, user_id: Optional[str] = None,
+                                    start_date=None, end_date=None) -> List[Dict[str, Any]]:
+        """Get stored predictions for a symbol, optionally filtered by user and date range."""
+        session = self._get_session()
+        try:
+            query = session.query(Prediction).filter(Prediction.symbol == symbol.upper())
+            if user_id:
+                query = query.filter(Prediction.user_id == user_id)
+            if start_date:
+                query = query.filter(Prediction.created_at >= start_date)
+            if end_date:
+                query = query.filter(Prediction.created_at <= end_date)
+            query = query.order_by(Prediction.created_at.desc()).limit(20)
+            return [self._prediction_to_dict(p) for p in query.all()]
+        except Exception as e:
+            logger.error(f"Failed to get predictions for {symbol}: {e}")
+            return []
+        finally:
+            session.close()
+
     def get_user_analytics(self, user_id: str) -> Dict[str, Any]:
         """Get comprehensive user analytics"""
         session = self._get_session()

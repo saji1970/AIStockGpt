@@ -471,6 +471,49 @@ def _is_growth_value_screening_message(text: str) -> bool:
     return any(re.search(p, t) for p in _GROWTH_VALUE_SCREENING_PATTERNS)
 
 
+# ---------------------------------------------------------------------------
+# Startup / high-growth stock screening
+# ---------------------------------------------------------------------------
+_STARTUP_SCREENING_PATTERNS = [
+    r"\bstartup\b.*\b(?:stock|invest|compan|equit)",
+    r"\b(?:stock|invest|compan|equit).*\bstartup",
+    r"\b(?:high[-\s]?growth|hyper[-\s]?growth|emerging)\s+(?:stock|compan|pick|ticker|name)",
+    r"\b(?:stock|compan|pick|ticker|name).*\b(?:high[-\s]?growth|hyper[-\s]?growth|emerging)",
+    r"\b(?:early[-\s]?stage|pre[-\s]?profit|disruptive|disruptor).*\b(?:stock|invest|compan)",
+    r"\b(?:next\s+big|moonshot|10x|tenbagger|multi[-\s]?bagger).*\b(?:stock|invest|compan|pick)",
+    r"\b(?:stock|invest|compan|pick).*\b(?:moonshot|10x|tenbagger|multi[-\s]?bagger)",
+    r"\b(?:small[-\s]?cap|micro[-\s]?cap|mid[-\s]?cap)\s+(?:growth|stock|pick|idea)",
+]
+
+# Broader "stock ideas / what to invest" questions (no amount, no specific ticker)
+_STOCK_IDEAS_PATTERNS = [
+    r"(?:which|what)\s+(?:stock|stocks|companies|tickers)\s+(?:to|should\s+i|can\s+i|do\s+you\s+recommend)\s+(?:invest|buy|pick|hold)",
+    r"(?:which|what)\s+(?:are|is)\s+(?:the\s+)?(?:best|good|top|hot|trending)\s+(?:stock|stocks|companies)\s+(?:to\s+)?(?:invest|buy|pick|hold)?",
+    r"(?:recommend|suggest)\s+(?:me\s+)?(?:some\s+)?(?:stock|stocks|companies|tickers)\s+(?:to\s+)?(?:invest|buy)",
+    r"(?:best|good|top|hot|trending)\s+(?:stock|stocks|companies)\s+(?:to\s+)?(?:invest|buy|pick)",
+    r"(?:where|what)\s+(?:should\s+i|to)\s+invest\s+(?:in\s+)?(?:right\s+now|today|now|this\s+year)",
+]
+
+
+def _is_startup_screening_message(text: str) -> bool:
+    """Startup / high-growth stock questions."""
+    t = (text or "").lower()
+    if not t:
+        return False
+    return any(re.search(p, t) for p in _STARTUP_SCREENING_PATTERNS)
+
+
+def _is_stock_ideas_message(text: str) -> bool:
+    """Broad 'what stocks to invest in' without a dollar amount or specific ticker."""
+    t = (text or "").lower()
+    if not t:
+        return False
+    # Only trigger if there is NO dollar/rupee amount already in the message
+    if re.search(r"(?:\$|₹|usd|inr)\s*\d", t) or re.search(r"\d+\s*(?:dollars?|rupees?|usd|inr)", t):
+        return False
+    return any(re.search(p, t) for p in _STOCK_IDEAS_PATTERNS)
+
+
 def _format_growth_value_screening_markdown(india: bool) -> str:
     """ChatGPT-style structured answer: criteria + table + categories + follow-ups."""
     if india:
@@ -516,6 +559,129 @@ def _format_growth_value_screening_markdown(india: bool) -> str:
         "- \"Conservative vs aggressive $5,000 growth portfolio\"\n\n"
         "---\n\n"
         "*Not financial advice. Prices and fundamentals change—verify before acting.*"
+    )
+
+
+def _format_startup_screening_markdown(india: bool) -> str:
+    """Startup / high-growth stock ideas with specific analysis, risk levels, and strategy buckets."""
+    if india:
+        return (
+            "## Startup & High-Growth Stock Ideas (India)\n\n"
+            "If you want **startup-style growth** with higher upside potential, look for companies with "
+            "**rapid revenue growth**, **market disruption**, **expanding TAM**, and **strong management**.\n\n"
+            "| Stock | Why it's interesting | Risk Level |\n"
+            "|------|----------------------|------------|\n"
+            "| **ZOMATO.BSE** (Zomato) | Food-delivery + quick-commerce (Blinkit); turning profitable with massive scale | Medium–High |\n"
+            "| **PAYTM.BSE** (One97 / Paytm) | Fintech payments + lending; restructured, improving path to profitability | High |\n"
+            "| **NYKAA.BSE** (FSN E-Commerce) | Beauty & fashion e-commerce; strong brand + D2C growth | Medium–High |\n"
+            "| **POLICYBZR.BSE** (PB Fintech) | Insurtech leader; digital insurance distribution at scale | High |\n"
+            "| **DELHIVERY.BSE** (Delhivery) | Logistics-tech; benefiting from e-commerce boom | High |\n"
+            "| **MAPMYINDIA.BSE** (C.E. Info Systems) | India's mapping & location-tech; AI + autonomous driving play | Medium–High |\n\n"
+            "### Strategy buckets\n"
+            "- **Safer growth**: ZOMATO, NYKAA\n"
+            "- **Aggressive high-upside**: PAYTM, POLICYBZR\n"
+            "- **Speculative moonshot**: DELHIVERY, MAPMYINDIA\n\n"
+            "### Practical allocation idea (example only)\n"
+            "- 40% in a stronger core growth stock (ZOMATO)\n"
+            "- 40% split across 2–3 emerging growth names\n"
+            "- 20% in speculative bets\n\n"
+            "### Ask next\n"
+            "- *\"Predict ZOMATO.BSE\"* for ML price forecast\n"
+            "- *\"Technical analysis of PAYTM.BSE\"* for indicators\n\n"
+            "---\n\n"
+            "*Not financial advice. Startup stocks carry higher volatility—do your own research.*"
+        )
+    return (
+        "## Startup & High-Growth Stock Ideas (US)\n\n"
+        "If you want **startup-style growth** with higher upside potential, focus on "
+        "**AI infrastructure**, **fintech**, **defense tech**, and **emerging software** "
+        "rather than pure speculative penny stocks.\n\n"
+        "| Stock | Why it's interesting | Risk Level |\n"
+        "|------|----------------------|------------|\n"
+        "| **PLTR** (Palantir Technologies) | Strong AI + government + enterprise growth; becoming core AI infrastructure for defense and enterprise analytics. Expensive valuation, but momentum is strong | Medium–High |\n"
+        "| **PGNY** (Pagaya Technologies) | AI-based lending/fintech platform; fast revenue growth and still relatively small compared to larger fintechs | High |\n"
+        "| **NVTS** (Navitas Semiconductor) | Power semiconductors tied to AI data centers and next-gen energy systems; big long-term upside if AI infra demand continues | High |\n"
+        "| **FRSH** (Freshworks) | Profitable SaaS company with AI customer-support tools; more stable than many startups | Medium |\n"
+        "| **OPRA** (Opera Limited) | Browser + AI assistant + gaming ecosystem; still underfollowed and profitable | Medium |\n"
+        "| **BBAI** (BigBear.ai Holdings) | AI + defense analytics; highly speculative but can move aggressively during AI rallies | Very High |\n"
+        "| **INOD** (Innodata) | Provides AI training and data engineering for LLMs; smaller company benefiting from the AI boom | High |\n"
+        "| **RKLB** (Rocket Lab) | Space infrastructure + satellite launch; high growth, high volatility | High |\n\n"
+        "### Strategy buckets\n"
+        "| Category | Stocks |\n"
+        "|----------|--------|\n"
+        "| **Safer growth** | PLTR, FRSH |\n"
+        "| **Aggressive high-upside** | PGNY, NVTS, INOD |\n"
+        "| **Speculative moonshot** | BBAI, RKLB |\n\n"
+        "### Practical allocation strategy (example only)\n"
+        "- **40%** in a stronger core growth stock (PLTR / FRSH)\n"
+        "- **40%** split across 2–3 emerging growth names\n"
+        "- **20%** in speculative AI / small-cap bets\n\n"
+        "Avoid putting everything into one stock—most fail even if the sector trend is right.\n\n"
+        "### Ask next\n"
+        "- *\"Predict PLTR\"* for ML-based price forecast\n"
+        "- *\"Technical analysis of NVTS\"* for RSI, MACD, and more\n"
+        "- *\"Best stocks under $20\"* for price-filtered ideas\n\n"
+        "---\n\n"
+        "*Not financial advice. Startup stocks carry higher volatility—always verify fundamentals before acting.*"
+    )
+
+
+def _format_stock_ideas_screening_markdown(india: bool) -> str:
+    """General 'what stocks to invest in' response with categorized ideas."""
+    if india:
+        return (
+            "## Top Stock Ideas to Consider (India)\n\n"
+            "Here are **specific stocks** across different categories based on current market themes:\n\n"
+            "### Blue-chip growth\n"
+            "| Stock | Why it's interesting | Risk |\n"
+            "|------|----------------------|------|\n"
+            "| **RELIANCE.BSE** (Reliance) | Conglomerate optionality: energy, retail, telecom (Jio) | Medium |\n"
+            "| **HDFCBANK.BSE** (HDFC Bank) | Largest private bank; strong retail franchise | Medium |\n"
+            "| **INFY.BSE** (Infosys) | IT services; AI & digital transformation play | Medium |\n\n"
+            "### High-growth / emerging\n"
+            "| Stock | Why it's interesting | Risk |\n"
+            "|------|----------------------|------|\n"
+            "| **ZOMATO.BSE** (Zomato) | Food delivery + quick commerce; path to profitability | Medium–High |\n"
+            "| **BAJFINANCE.BSE** (Bajaj Finance) | Consumer lending growth; premium valuation | Medium–High |\n"
+            "| **LT.BSE** (L&T) | Infrastructure + engineering cycle exposure | Medium |\n\n"
+            "### Ask next\n"
+            "- *\"Predict RELIANCE.BSE\"* for ML forecast\n"
+            "- *\"What startup stocks to invest\"* for higher-risk growth ideas\n\n"
+            "---\n\n"
+            "*Not financial advice. Do your own research.*"
+        )
+    return (
+        "## Top Stock Ideas to Consider (US)\n\n"
+        "Here are **specific stocks** across different categories based on current market themes:\n\n"
+        "### Large-cap growth leaders\n"
+        "| Stock | Why it's interesting | Risk |\n"
+        "|------|----------------------|------|\n"
+        "| **NVDA** (NVIDIA) | AI chip leader; data center + inference demand | Medium |\n"
+        "| **MSFT** (Microsoft) | Cloud (Azure) + AI integration (Copilot) | Medium |\n"
+        "| **AAPL** (Apple) | Services growth + massive cash generation | Low–Medium |\n\n"
+        "### Mid-cap growth with upside\n"
+        "| Stock | Why it's interesting | Risk |\n"
+        "|------|----------------------|------|\n"
+        "| **PLTR** (Palantir) | AI + government + enterprise analytics momentum | Medium–High |\n"
+        "| **SOFI** (SoFi Technologies) | Fintech + banking ecosystem; member growth | Medium–High |\n"
+        "| **CRWD** (CrowdStrike) | Cybersecurity leader; AI-driven threat detection | Medium |\n\n"
+        "### Emerging / higher-risk\n"
+        "| Stock | Why it's interesting | Risk |\n"
+        "|------|----------------------|------|\n"
+        "| **RKLB** (Rocket Lab) | Space infrastructure; government + commercial launch | High |\n"
+        "| **NVTS** (Navitas) | Power semiconductors for AI data centers | High |\n\n"
+        "### By investment style\n"
+        "| Style | Stocks |\n"
+        "|-------|--------|\n"
+        "| **Conservative** | AAPL, MSFT |\n"
+        "| **Growth** | NVDA, PLTR, CRWD |\n"
+        "| **Aggressive** | SOFI, RKLB, NVTS |\n\n"
+        "### Ask next\n"
+        "- *\"What startup stocks to invest\"* for high-growth / startup ideas\n"
+        "- *\"Predict PLTR\"* for ML-based price forecast\n"
+        "- *\"Invest $5000 in aggressive stocks\"* for a specific allocation plan\n\n"
+        "---\n\n"
+        "*Not financial advice. Always verify fundamentals before acting.*"
     )
 
 
@@ -657,6 +823,18 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             entities.pop("symbol", None)
             entities["screening_growth_value"] = True
             confidence = max(confidence, 0.85)
+        # Startup / high-growth stock questions
+        elif _is_startup_screening_message(message):
+            intent = "market_advice"
+            entities.pop("symbol", None)
+            entities["screening_startup"] = True
+            confidence = max(confidence, 0.85)
+        # Broad "what stocks to invest" without dollar amount
+        elif _is_stock_ideas_message(message):
+            intent = "market_advice"
+            entities.pop("symbol", None)
+            entities["screening_stock_ideas"] = True
+            confidence = max(confidence, 0.85)
         elif not entities.get("screening_growth_value"):
             cap_usd = _parse_under_price_screening_cap_usd(message)
             cap_inr = None if cap_usd is not None else _parse_under_price_screening_cap_inr(message)
@@ -718,9 +896,14 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             "financial_planning":  {"default_risk": "moderate", "default_horizon": 60},
             "beginner_guidance":   {"default_risk": "moderate", "default_horizon": 36},
         }
-        if intent in _allocation_intents and portfolio_optimizer and not entities.get(
-            "screening_growth_value"
-        ) and entities.get("under_price_cap_usd") is None and entities.get("under_price_cap_inr") is None:
+        _skip_alloc = (
+            entities.get("screening_growth_value")
+            or entities.get("screening_startup")
+            or entities.get("screening_stock_ideas")
+            or entities.get("under_price_cap_usd") is not None
+            or entities.get("under_price_cap_inr") is not None
+        )
+        if intent in _allocation_intents and portfolio_optimizer and not _skip_alloc:
             defaults = _allocation_intents[intent]
             amount = entities.get('amount', 10000)
             risk = entities.get('risk_level', defaults["default_risk"])
@@ -902,6 +1085,20 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
                         or any(k in ml for k in ("india", "indian", "nifty", "sensex", "bse", "nse", "rupee", "inr"))
                     )
                     response_text = _format_growth_value_screening_markdown(india)
+                elif entities.get("screening_startup"):
+                    ml = (message or "").lower()
+                    india = (
+                        entities.get("market") == "india"
+                        or any(k in ml for k in ("india", "indian", "nifty", "sensex", "bse", "nse", "rupee", "inr"))
+                    )
+                    response_text = _format_startup_screening_markdown(india)
+                elif entities.get("screening_stock_ideas"):
+                    ml = (message or "").lower()
+                    india = (
+                        entities.get("market") == "india"
+                        or any(k in ml for k in ("india", "indian", "nifty", "sensex", "bse", "nse", "rupee", "inr"))
+                    )
+                    response_text = _format_stock_ideas_screening_markdown(india)
                 elif entities.get("under_price_cap_usd") is not None:
                     response_text = _format_under_price_screening_usd(float(entities["under_price_cap_usd"]))
                 elif entities.get("under_price_cap_inr") is not None:
@@ -915,23 +1112,32 @@ def generate_response(message: str, user_id: Optional[str] = None) -> Dict[str, 
             else:
                 response_text = handle_general_question(message)
 
-        if entities.get("screening_growth_value") and stock_data is None:
-            try:
-                ml_spot = (message or "").lower()
-                india_spot = (
-                    entities.get("market") == "india"
-                    or any(
-                        k in ml_spot
-                        for k in ("india", "indian", "nifty", "sensex", "bse", "nse", "rupee", "inr")
-                    )
-                )
-                sp = "HDFCBANK.BSE" if india_spot else "SOFI"
-                spot = fetch_stock_data(sp)
-                if spot:
-                    stock_data = spot
-            except Exception:
-                pass
-        elif entities.get("under_price_cap_usd") is not None and stock_data is None:
+        # Attach a representative stock card for screening responses
+        _screening_spot_map = {
+            "screening_growth_value": {"us": "SOFI", "india": "HDFCBANK.BSE"},
+            "screening_startup":     {"us": "PLTR", "india": "ZOMATO.BSE"},
+            "screening_stock_ideas": {"us": "NVDA", "india": "RELIANCE.BSE"},
+        }
+        if stock_data is None:
+            for _skey, _sym_map in _screening_spot_map.items():
+                if entities.get(_skey):
+                    try:
+                        _ml_spot = (message or "").lower()
+                        _india_spot = (
+                            entities.get("market") == "india"
+                            or any(
+                                k in _ml_spot
+                                for k in ("india", "indian", "nifty", "sensex", "bse", "nse", "rupee", "inr")
+                            )
+                        )
+                        _sp = _sym_map["india"] if _india_spot else _sym_map["us"]
+                        spot = fetch_stock_data(_sp)
+                        if spot:
+                            stock_data = spot
+                    except Exception:
+                        pass
+                    break
+        if entities.get("under_price_cap_usd") is not None and stock_data is None:
             try:
                 spot = fetch_stock_data("SOFI")
                 if spot:

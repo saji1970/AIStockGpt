@@ -214,6 +214,31 @@ INTENT_REFERENCES = {
         "how to plan investments for multiple financial goals",
         "fire movement financial independence retire early",
     ],
+    "currency_conversion": [
+        "convert usd to inr",
+        "usd to rupee exchange rate",
+        "how much is 100 dollars in rupees",
+        "dollar to rupee conversion",
+        "what is the exchange rate for euro to dollar",
+        "currency conversion rate",
+        "1 usd in inr",
+        "dollar rupee rate today",
+        "how many rupees for one dollar",
+        "gbp to usd rate",
+    ],
+    "currency_investment": [
+        "best currency to invest in",
+        "which currency should I invest in",
+        "is forex trading profitable",
+        "should I invest in currencies",
+        "currency investment strategy",
+        "forex investment guide",
+        "is currency a good investment",
+        "best currencies for long term investment",
+        "currency swap investment",
+        "how to invest in foreign currency",
+        "carry trade currency strategy",
+    ],
     "general_question": [
         "hello how are you",
         "what can you do",
@@ -341,6 +366,25 @@ REGEX_INTENT_PATTERNS = {
         r"(?:dollar.*cost|dca|lump.*sum).*(?:invest|average|vs)",
         r"(?:4|four).*percent.*rule", r"(?:withdrawal|drawdown).*(?:rate|strategy)",
         r"(?:plan|planning).*(?:invest|financial|money).*(?:goal|target|future)",
+    ],
+    "currency_conversion": [
+        r"(?:convert|change).*(?:usd|dollar|eur|euro|gbp|pound|jpy|yen|inr|rupee|aud|cad|chf)",
+        r"(?:usd|dollar|eur|euro|gbp|pound|jpy|yen|aud|cad|chf).*(?:to|into|in).*(?:usd|dollar|eur|euro|gbp|pound|jpy|yen|inr|rupee|aud|cad|chf)",
+        r"exchange\s*rate",
+        r"(?:how\s*(?:much|many)).*(?:dollar|rupee|euro|pound|yen)",
+        r"(?:dollar|rupee|euro|pound|yen)\s*(?:rate|price|value)\s*(?:today|now|current)?",
+        r"\d+\s*(?:usd|dollar|eur|euro|gbp|pound|jpy|yen|inr|rupee).*(?:to|into|in)",
+        r"(?:currency|forex)\s*(?:rate|conversion|convert)",
+    ],
+    "currency_investment": [
+        r"best.*currenc.*invest",
+        r"(?:invest|trading|trade).*(?:currency|currencies|forex)",
+        r"(?:currency|currencies|forex).*(?:invest|profitable|profit|good|worth|strategy)",
+        r"(?:should|can|is).*(?:invest|trade).*(?:currency|currencies|forex)",
+        r"(?:forex|currency).*(?:trading|investment|guide|beginner|strategy)",
+        r"carry\s*trade",
+        r"currency\s*swap.*invest",
+        r"(?:best|top|safe|strong).*(?:currency|currencies).*(?:buy|hold|invest|2026|2025)",
     ],
     "general_question": [
         r"help", r"what.*can.*you.*do", r"capabilities",
@@ -847,7 +891,10 @@ class EnhancedNLPProcessor:
 
     def _extract_market(self, message: str) -> Optional[str]:
         """Detect target market (india, us, forex, commodity, crypto) from the message."""
-        forex_keywords = ['forex', 'fx market', 'currency pair', 'exchange rate']
+        forex_keywords = ['forex', 'fx market', 'currency pair', 'exchange rate',
+                         'currency conversion', 'currency rate', 'dollar to rupee',
+                         'rupee to dollar', 'usd to inr', 'inr to usd',
+                         'euro to dollar', 'dollar to euro', 'pound to dollar']
         commodity_keywords = ['commodity', 'commodities', 'futures']
         crypto_keywords = ['crypto', 'cryptocurrency', 'defi', 'blockchain']
         india_keywords = [

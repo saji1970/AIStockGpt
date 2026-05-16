@@ -1292,6 +1292,29 @@ def generate_response(message: str, user_id: Optional[str] = None,
             entities.pop("symbol", None)
             entities["screening_stock_ideas"] = True
             confidence = max(confidence, 0.85)
+        # Currency investment questions (must check before price cap to avoid false positives)
+        elif re.search(
+            r"(?:best|top|safe|strong).*(?:currency|currencies).*(?:invest|buy|hold)"
+            r"|(?:invest|trading|trade).*(?:currency|currencies|forex)"
+            r"|(?:currency|currencies|forex).*(?:invest|profitable|profit|good|worth|strategy)"
+            r"|(?:should|can|is).*(?:invest|trade).*(?:currency|currencies|forex)"
+            r"|(?:forex|currency)\s*(?:trading|investment)\s*(?:guide|beginner|strategy|profitable)?",
+            message.lower(),
+        ):
+            intent = "currency_investment"
+            entities.pop("symbol", None)
+            confidence = max(confidence, 0.85)
+        # Currency conversion questions ("usd to inr", "convert dollars to rupees", "exchange rate")
+        elif re.search(
+            r"(?:convert|change).*(?:usd|dollar|eur|euro|gbp|pound|jpy|yen|inr|rupee|aud|cad|chf)"
+            r"|(?:usd|dollar|eur|euro|gbp|pound|jpy|yen|aud|cad|chf)\s*(?:to|into|in)\s*(?:usd|dollar|eur|euro|gbp|pound|jpy|yen|inr|rupee|aud|cad|chf)"
+            r"|exchange\s*rate"
+            r"|(?:how\s*(?:much|many)).*(?:dollar|rupee|euro|pound|yen)"
+            r"|(?:currency|forex)\s*(?:rate|conversion)",
+            message.lower(),
+        ):
+            intent = "currency_conversion"
+            confidence = max(confidence, 0.85)
         elif not entities.get("screening_growth_value"):
             cap_usd = _parse_under_price_screening_cap_usd(message)
             cap_inr = None if cap_usd is not None else _parse_under_price_screening_cap_inr(message)
@@ -1472,6 +1495,41 @@ def generate_response(message: str, user_id: Optional[str] = None,
                     )
             except Exception as e:
                 logger.warning(f"Failed to fetch portfolio for chat: {e}")
+
+        # ---- Currency intent short-circuits ---- #
+        if intent == "currency_conversion":
+            response_text = _handle_currency_conversion(symbol or 'USDINR=X', stock_data)
+            if user_id and ENHANCED_MODULES_AVAILABLE:
+                try:
+                    db_manager.save_chat_message(user_id, message, response_text)
+                except Exception:
+                    pass
+            return {
+                "message": response_text,
+                "stockData": stock_data,
+                "charts": None,
+                "confidence": confidence,
+            }
+
+        if intent == "currency_investment":
+            response_text = _handle_currency_investment()
+            # Attach a representative forex card
+            if stock_data is None:
+                try:
+                    stock_data = fetch_stock_data('USDINR=X')
+                except Exception:
+                    pass
+            if user_id and ENHANCED_MODULES_AVAILABLE:
+                try:
+                    db_manager.save_chat_message(user_id, message, response_text)
+                except Exception:
+                    pass
+            return {
+                "message": response_text,
+                "stockData": stock_data,
+                "charts": None,
+                "confidence": confidence,
+            }
 
         # ---- Build response text ---- #
         if ml_results:
@@ -1659,6 +1717,145 @@ def handle_general_question(message: str) -> str:
             return response
     
     return "I'm here to help with stock analysis and predictions. What would you like to know?"
+
+
+def _handle_currency_conversion(symbol: str, stock_data: Optional[Dict] = None) -> str:
+    """Handle currency conversion queries with rich, detailed output."""
+    _pair_info = {
+        'USDINR=X': {'from_flag': '\U0001f1fa\U0001f1f8', 'from_name': 'US Dollar', 'from_sym': '$', 'from_code': 'USD',
+                      'to_flag': '\U0001f1ee\U0001f1f3', 'to_name': 'Indian Rupee', 'to_sym': '\u20b9', 'to_code': 'INR'},
+        'EURUSD=X': {'from_flag': '\U0001f1ea\U0001f1fa', 'from_name': 'Euro', 'from_sym': '\u20ac', 'from_code': 'EUR',
+                      'to_flag': '\U0001f1fa\U0001f1f8', 'to_name': 'US Dollar', 'to_sym': '$', 'to_code': 'USD'},
+        'GBPUSD=X': {'from_flag': '\U0001f1ec\U0001f1e7', 'from_name': 'British Pound', 'from_sym': '\u00a3', 'from_code': 'GBP',
+                      'to_flag': '\U0001f1fa\U0001f1f8', 'to_name': 'US Dollar', 'to_sym': '$', 'to_code': 'USD'},
+        'USDJPY=X': {'from_flag': '\U0001f1fa\U0001f1f8', 'from_name': 'US Dollar', 'from_sym': '$', 'from_code': 'USD',
+                      'to_flag': '\U0001f1ef\U0001f1f5', 'to_name': 'Japanese Yen', 'to_sym': '\u00a5', 'to_code': 'JPY'},
+        'AUDUSD=X': {'from_flag': '\U0001f1e6\U0001f1fa', 'from_name': 'Australian Dollar', 'from_sym': 'A$', 'from_code': 'AUD',
+                      'to_flag': '\U0001f1fa\U0001f1f8', 'to_name': 'US Dollar', 'to_sym': '$', 'to_code': 'USD'},
+        'USDCAD=X': {'from_flag': '\U0001f1fa\U0001f1f8', 'from_name': 'US Dollar', 'from_sym': '$', 'from_code': 'USD',
+                      'to_flag': '\U0001f1e8\U0001f1e6', 'to_name': 'Canadian Dollar', 'to_sym': 'C$', 'to_code': 'CAD'},
+        'USDCHF=X': {'from_flag': '\U0001f1fa\U0001f1f8', 'from_name': 'US Dollar', 'from_sym': '$', 'from_code': 'USD',
+                      'to_flag': '\U0001f1e8\U0001f1ed', 'to_name': 'Swiss Franc', 'to_sym': 'CHF', 'to_code': 'CHF'},
+        'NZDUSD=X': {'from_flag': '\U0001f1f3\U0001f1ff', 'from_name': 'New Zealand Dollar', 'from_sym': 'NZ$', 'from_code': 'NZD',
+                      'to_flag': '\U0001f1fa\U0001f1f8', 'to_name': 'US Dollar', 'to_sym': '$', 'to_code': 'USD'},
+        'EURGBP=X': {'from_flag': '\U0001f1ea\U0001f1fa', 'from_name': 'Euro', 'from_sym': '\u20ac', 'from_code': 'EUR',
+                      'to_flag': '\U0001f1ec\U0001f1e7', 'to_name': 'British Pound', 'to_sym': '\u00a3', 'to_code': 'GBP'},
+        'EURJPY=X': {'from_flag': '\U0001f1ea\U0001f1fa', 'from_name': 'Euro', 'from_sym': '\u20ac', 'from_code': 'EUR',
+                      'to_flag': '\U0001f1ef\U0001f1f5', 'to_name': 'Japanese Yen', 'to_sym': '\u00a5', 'to_code': 'JPY'},
+    }
+
+    info = _pair_info.get(symbol)
+    rate = stock_data.get('price', 0) if stock_data else 0
+    change = stock_data.get('change', 0) if stock_data else 0
+    change_pct = stock_data.get('changePercent', 0) if stock_data else 0
+
+    if not info:
+        # Generic fallback for unknown pairs
+        return (
+            f"## {symbol} Exchange Rate\n\n"
+            f"**Current Rate:** {rate:,.4f}\n"
+            f"**Change:** {'+' if change >= 0 else ''}{change:.4f} ({'+' if change_pct >= 0 else ''}{change_pct:.2f}%)\n\n"
+            f"Exchange rates fluctuate throughout the day based on the forex market.\n\n"
+            f"*Ask: \"Predict {symbol}\" for AI-based forecast.*\n\n"
+            f"*Not financial advice. Rates are indicative.*"
+        )
+
+    sign = '+' if change >= 0 else ''
+
+    response = (
+        f"## {info['from_code']}/{info['to_code']} Exchange Rate\n\n"
+        f"{info['from_flag']} **{info['from_name']}** ({info['from_sym']})"
+        f"  \u2192  "
+        f"{info['to_flag']} **{info['to_name']}** ({info['to_sym']})\n\n"
+        f"**Current Rate:** 1 {info['from_code']} = {info['to_sym']}{rate:,.4f}\n"
+        f"**Change:** {sign}{change:.4f} ({sign}{change_pct:.2f}%)\n\n"
+    )
+
+    # Conversion examples
+    if rate > 0:
+        multipliers = [1, 10, 100, 1000, 10000]
+        response += "### Quick Conversion\n\n"
+        response += f"| {info['from_code']} | {info['to_code']} |\n"
+        response += "|------|------|\n"
+        for m in multipliers:
+            response += f"| {info['from_sym']}{m:,} | {info['to_sym']}{m * rate:,.2f} |\n"
+        response += "\n"
+
+    response += (
+        "### Key Factors Affecting This Rate\n\n"
+        "- **Interest rate differentials** between central banks\n"
+        "- **Inflation rates** in both economies\n"
+        "- **Trade balance** and capital flows\n"
+        "- **Economic growth** (GDP) differentials\n"
+        "- **Geopolitical events** and risk sentiment\n\n"
+        f"### Next Steps\n\n"
+        f"- *\"Predict {symbol}\"* for ML-based exchange rate forecast\n"
+        f"- *\"Technical analysis {symbol}\"* for trend indicators\n\n"
+        f"---\n\n"
+        f"*Exchange rates fluctuate throughout the day. Not financial advice.*"
+    )
+
+    return response
+
+
+def _handle_currency_investment() -> str:
+    """Handle queries about investing in currencies with educational, detailed guidance."""
+    return (
+        "## Currency Investment Guide\n\n"
+        "Currency swaps and forex trading can be profitable, but they are "
+        "usually **much riskier** than long-term stock or ETF investing.\n\n"
+        "### Two Common Meanings\n\n"
+        "**1. Forex Trading / Currency Speculation**\n"
+        "- Buying one currency and selling another to profit from exchange-rate changes\n"
+        "- Example: betting that INR will strengthen against USD\n"
+        "- High risk because currencies move based on interest rates, geopolitics, "
+        "inflation, and central bank actions\n\n"
+        "**2. Currency Swap Instruments**\n"
+        "- Mostly used by banks, corporations, and large investors to hedge currency exposure\n"
+        "- Not typically suitable for beginners\n\n"
+        "### Strongest Major Currencies\n\n"
+        "| Currency | Country | Risk Level | Use Case |\n"
+        "|----------|---------|------------|----------|\n"
+        "| **USD** \U0001f1fa\U0001f1f8 | United States | Low-Medium | Global reserve currency, strongest liquidity |\n"
+        "| **CHF** \U0001f1e8\U0001f1ed | Switzerland | Low | Safe-haven during crises |\n"
+        "| **SGD** \U0001f1f8\U0001f1ec | Singapore | Low | Stable economy, strong monetary policy |\n"
+        "| **EUR** \U0001f1ea\U0001f1fa | Eurozone | Medium | Diversification from USD |\n"
+        "| **JPY** \U0001f1ef\U0001f1f5 | Japan | Medium | Often rises during market fear |\n"
+        "| **GBP** \U0001f1ec\U0001f1e7 | United Kingdom | Medium-High | Strong financial market presence |\n\n"
+        "### Challenges of Forex Trading\n\n"
+        "- High leverage can **magnify losses**\n"
+        "- Markets move 24/5 and are volatile\n"
+        "- Requires macroeconomic knowledge and strong risk management\n"
+        "- Many beginners lose money due to overtrading\n\n"
+        "### A More Stable Approach\n\n"
+        "For most retail investors, a balanced strategy works better:\n\n"
+        "| Allocation | Strategy |\n"
+        "|------------|----------|\n"
+        "| 70-80% | Long-term diversified investments (ETFs, index funds, quality stocks) |\n"
+        "| 10-20% | High-growth opportunities |\n"
+        "| 5% or less | Forex / crypto / speculative trades |\n\n"
+        "### Ways to Get Currency Exposure\n\n"
+        "- **Investing in U.S. stocks** while earning/spending in INR\n"
+        "- **Holding USD-denominated assets** for diversification\n"
+        "- **International ETFs** (VXUS, VEA, EFA)\n"
+        "- **Currency ETFs**: FXE (Euro), FXY (Yen), FXB (Pound)\n"
+        "- **Government bonds** in different currencies\n\n"
+        "### Protecting Against INR Depreciation\n\n"
+        "Historically, these currencies have strengthened against INR:\n"
+        "- USD, CHF, GBP, EUR\n\n"
+        "A practical structure:\n"
+        "- 50% USD assets\n"
+        "- 20% CHF/SGD\n"
+        "- 20% Global equity ETFs\n"
+        "- 10% Speculative/high-growth bets\n\n"
+        "### Ask Me More\n\n"
+        "- *\"USD to INR\"* - live exchange rate\n"
+        "- *\"Predict EURUSD=X\"* - ML-based forex forecast\n"
+        "- *\"Technical analysis dollar rupee\"* - trend indicators\n"
+        "- *\"Best stocks to invest in\"* - equity alternatives\n\n"
+        "---\n\n"
+        "*Currency markets are volatile. This is educational content, not financial advice.*"
+    )
 
 
 def handle_market_advice(message: str, entities: Optional[Dict] = None) -> str:

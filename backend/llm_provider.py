@@ -226,6 +226,28 @@ class LLMProvider:
                 "the 4% rule for retirement withdrawal, and dollar-cost averaging. "
                 "Provide specific numbers and timelines based on the user's stated goals."
             ),
+            "currency_conversion": (
+                f"The user is asking about currency exchange rates"
+                f"{' for ' + symbol if symbol else ''}. "
+                "Provide the current rate if available, show example conversions at different "
+                "amounts, and explain what factors affect exchange rates (interest rate differentials, "
+                "inflation, trade balances, economic growth, geopolitics). "
+                "Include country flags and currency symbols for visual richness. "
+                "Mention that exchange rates fluctuate throughout the day based on the forex market."
+            ),
+            "currency_investment": (
+                "The user is asking about investing in currencies or forex trading. "
+                "Explain that currency trading is usually much riskier than stock/ETF investing. "
+                "Cover: forex trading vs currency swaps, strongest major currencies (USD, CHF, SGD, "
+                "EUR, JPY, GBP) with risk levels, challenges of forex trading (leverage, volatility, "
+                "24/5 markets), and safer alternatives (international ETFs, USD-denominated assets). "
+                "Suggest a balanced allocation: 70-80% diversified long-term investments, 10-20% "
+                "high-growth, 5% or less for speculative forex/crypto trades. "
+                "Include ways to get currency exposure indirectly: US stocks from India, "
+                "international ETFs, currency ETFs (FXE, FXY, FXB). "
+                "Be educational and balanced - acknowledge that forex can be profitable but "
+                "emphasize the risks for beginners."
+            ),
             "general_question": (
                 "The user has a general question about the AI Stock GPT system. "
                 "Explain your capabilities: stock predictions using LSTM neural networks, "

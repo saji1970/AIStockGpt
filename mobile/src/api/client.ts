@@ -128,6 +128,11 @@ export async function deleteStockFromPortfolio(portfolioId: string, symbol: stri
   return res.data;
 }
 
+export async function deletePortfolio(portfolioId: string) {
+  const res = await api.delete(`/portfolio/${portfolioId}`);
+  return res.data;
+}
+
 export async function addStockToPortfolio(
   portfolioId: string,
   symbol: string,

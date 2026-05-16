@@ -132,6 +132,29 @@ export default function PortfolioScreen() {
     ]);
   };
 
+  const handleDeletePortfolio = (portfolio: {id: string; name: string}) => {
+    Alert.alert(
+      'Delete Portfolio',
+      `Are you sure you want to delete "${portfolio.name}" and all its stocks? This cannot be undone.`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deletePortfolio(portfolio.id);
+              setSelectedPortfolio(null);
+              fetchPortfolios();
+            } catch {
+              Alert.alert('Error', 'Failed to delete portfolio');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const openPortfolio = async (id: string) => {
     setLoadingDetail(true);
     try {
@@ -184,6 +207,7 @@ export default function PortfolioScreen() {
             totalGainLoss={item.total_gain_loss || 0}
             stockCount={(item.stocks || []).length}
             onPress={() => openPortfolio(item.id)}
+            onLongPress={() => handleDeletePortfolio({id: item.id, name: item.name})}
           />
         )}
       />
@@ -266,19 +290,24 @@ export default function PortfolioScreen() {
                 (selectedPortfolio?.stocks || []).map((s: any, i: number) => {
                   const gainColor = s.gain_loss != null ? (s.gain_loss >= 0 ? '#10b981' : '#ef4444') : '#6b7280';
                   return (
-                    <TouchableOpacity key={i} style={styles.stockCard} onLongPress={() => handleDeleteStock(s.symbol)} activeOpacity={0.8}>
+                    <View key={i} style={styles.stockCard}>
                       <View style={styles.stockHeader}>
-                        <View>
+                        <View style={{flex: 1}}>
                           <Text style={styles.stockSymbol}>{s.symbol}</Text>
                           {s.name && s.name !== s.symbol ? <Text style={styles.stockName}>{s.name}</Text> : null}
                         </View>
-                        <View style={{alignItems: 'flex-end'}}>
-                          <Text style={styles.stockCurrentPrice}>{formatCurrency(s.current_price)}</Text>
-                          {s.gain_loss_percent != null && (
-                            <Text style={[styles.stockGainBadge, {color: gainColor}]}>
-                              {s.gain_loss >= 0 ? '+' : ''}{s.gain_loss_percent.toFixed(2)}%
-                            </Text>
-                          )}
+                        <View style={{alignItems: 'flex-end', flexDirection: 'row', gap: 10}}>
+                          <View style={{alignItems: 'flex-end'}}>
+                            <Text style={styles.stockCurrentPrice}>{formatCurrency(s.current_price)}</Text>
+                            {s.gain_loss_percent != null && (
+                              <Text style={[styles.stockGainBadge, {color: gainColor}]}>
+                                {s.gain_loss >= 0 ? '+' : ''}{s.gain_loss_percent.toFixed(2)}%
+                              </Text>
+                            )}
+                          </View>
+                          <TouchableOpacity style={styles.deleteStockBtn} onPress={() => handleDeleteStock(s.symbol)} activeOpacity={0.7}>
+                            <Text style={styles.deleteStockIcon}>X</Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
                       <View style={styles.stockMetrics}>
@@ -301,13 +330,17 @@ export default function PortfolioScreen() {
                           </Text>
                         </View>
                       </View>
-                    </TouchableOpacity>
+                    </View>
                   );
                 })
               )}
             </ScrollView>
 
             <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.deletePfBtn} onPress={() => selectedPortfolio && handleDeletePortfolio({id: selectedPortfolio.id, name: selectedPortfolio.name})}>
+                <Text style={styles.deletePfText}>Delete Portfolio</Text>
+              </TouchableOpacity>
+              <View style={{flex: 1}} />
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setSelectedPortfolio(null)}>
                 <Text style={styles.cancelText}>Close</Text>
               </TouchableOpacity>
@@ -383,4 +416,10 @@ const styles = StyleSheet.create({
   stockMetric: {flex: 1},
   metricLabel: {fontSize: 10, color: '#9ca3af'},
   metricVal: {fontSize: 12, fontWeight: '600', color: '#374151', marginTop: 1},
+  // Delete stock button
+  deleteStockBtn: {width: 28, height: 28, borderRadius: 14, backgroundColor: '#fee2e2', justifyContent: 'center', alignItems: 'center'},
+  deleteStockIcon: {color: '#ef4444', fontSize: 13, fontWeight: '700'},
+  // Delete portfolio button
+  deletePfBtn: {paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#fee2e2'},
+  deletePfText: {color: '#ef4444', fontWeight: '600', fontSize: 13},
 });

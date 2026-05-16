@@ -8,15 +8,16 @@ interface Props {
   totalGainLoss: number;
   stockCount: number;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
-export default function PortfolioCard({name, description, totalValue, totalGainLoss, stockCount, onPress}: Props) {
+export default function PortfolioCard({name, description, totalValue, totalGainLoss, stockCount, onPress, onLongPress}: Props) {
   const isPositive = totalGainLoss >= 0;
   const invested = totalValue - totalGainLoss;
   const returnPct = invested > 0 ? (totalGainLoss / invested) * 100 : 0;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.card} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7}>
       <View style={styles.row}>
         <Text style={styles.name}>{name}</Text>
         <View style={styles.badge}>

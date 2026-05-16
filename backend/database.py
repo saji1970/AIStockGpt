@@ -327,6 +327,25 @@ class DatabaseManager:
         finally:
             session.close()
 
+    def delete_portfolio(self, portfolio_id: str, user_id: str) -> bool:
+        """Delete an entire portfolio (and its stocks via cascade) if it belongs to the user."""
+        session = self._get_session()
+        try:
+            deleted = session.query(Portfolio).filter(
+                Portfolio.id == portfolio_id,
+                Portfolio.user_id == user_id
+            ).delete()
+            session.commit()
+            if deleted:
+                logger.info(f"Portfolio {portfolio_id} deleted for user {user_id}")
+            return deleted > 0
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to delete portfolio: {e}")
+            return False
+        finally:
+            session.close()
+
     def get_portfolio(self, user_id_or_portfolio_id: str, portfolio_id: str = None) -> Optional[Dict[str, Any]]:
         """Get portfolio data with stocks.
 

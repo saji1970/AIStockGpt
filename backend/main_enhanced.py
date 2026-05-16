@@ -2652,6 +2652,23 @@ if ENHANCED_MODULES_AVAILABLE:
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
+    @app.delete("/portfolio/{portfolio_id}")
+    @rate_limit_authenticated
+    async def delete_portfolio_endpoint(
+        portfolio_id: str,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """Delete an entire portfolio and all its stocks."""
+        try:
+            result = db_manager.delete_portfolio(portfolio_id, current_user['id'])
+            if not result:
+                raise HTTPException(status_code=404, detail="Portfolio not found")
+            return {"message": "Portfolio deleted successfully"}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     # Chat History Endpoint
     @app.get("/chat/history")
     @rate_limit_authenticated

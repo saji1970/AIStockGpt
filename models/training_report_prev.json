@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-05-14 20:31:44",
+  "timestamp": "2026-05-15 03:38:44",
   "total_symbols": 170,
   "succeeded": 168,
   "failed": 2,
-  "total_time": 453.0065653324127,
+  "total_time": 367.37456345558167,
   "results": {
     "AAPL": {
       "status": "success",
@@ -14,7 +14,7 @@
       "f1": 0.9433962264150944,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 5.029896259307861
+      "elapsed": 5.379452466964722
     },
     "MSFT": {
       "status": "success",
@@ -25,7 +25,7 @@
       "f1": 0.7407407407407407,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.12876558303833
+      "elapsed": 2.926100969314575
     },
     "GOOGL": {
       "status": "success",
@@ -36,7 +36,7 @@
       "f1": 0.944954128440367,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.4019775390625
+      "elapsed": 2.4493162631988525
     },
     "AMZN": {
       "status": "success",
@@ -47,7 +47,7 @@
       "f1": 0.8426966292134831,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.8207271099090576
+      "elapsed": 2.7355053424835205
     },
     "TSLA": {
       "status": "success",
@@ -58,7 +58,7 @@
       "f1": 0.848,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5620546340942383
+      "elapsed": 2.1654324531555176
     },
     "META": {
       "status": "success",
@@ -69,7 +69,7 @@
       "f1": 0.5783132530120482,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.004425287246704
+      "elapsed": 1.7077786922454834
     },
     "NVDA": {
       "status": "success",
@@ -80,7 +80,7 @@
       "f1": 0.8412017167381974,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7257022857666016
+      "elapsed": 2.366734027862549
     },
     "NFLX": {
       "status": "success",
@@ -91,7 +91,7 @@
       "f1": 0.6808510638297872,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.402064561843872
+      "elapsed": 2.3198084831237793
     },
     "ADBE": {
       "status": "success",
@@ -102,7 +102,7 @@
       "f1": 0.2777777777777778,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.9380078315734863
+      "elapsed": 2.8078324794769287
     },
     "CRM": {
       "status": "success",
@@ -113,7 +113,7 @@
       "f1": 0.7704918032786885,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.907571792602539
+      "elapsed": 2.2916719913482666
     },
     "ORCL": {
       "status": "success",
@@ -124,7 +124,7 @@
       "f1": 0.6741573033707865,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.489065647125244
+      "elapsed": 2.8192760944366455
     },
     "INTC": {
       "status": "success",
@@ -135,7 +135,7 @@
       "f1": 0.8863636363636364,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.4107539653778076
+      "elapsed": 2.4359724521636963
     },
     "AMD": {
       "status": "success",
@@ -146,7 +146,7 @@
       "f1": 0.4745762711864407,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.0927796363830566
+      "elapsed": 2.7446305751800537
     },
     "IBM": {
       "status": "success",
@@ -157,7 +157,7 @@
       "f1": 0.7317073170731707,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.8056838512420654
+      "elapsed": 2.5930066108703613
     },
     "CSCO": {
       "status": "success",
@@ -168,7 +168,7 @@
       "f1": 0.8870292887029289,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.558725118637085
+      "elapsed": 2.685009002685547
     },
     "QCOM": {
       "status": "success",
@@ -179,7 +179,7 @@
       "f1": 0.4793388429752066,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.6750411987304688
+      "elapsed": 2.2390778064727783
     },
     "AVGO": {
       "status": "success",
@@ -190,7 +190,7 @@
       "f1": 0.88,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.840369462966919
+      "elapsed": 2.01395845413208
     },
     "TXN": {
       "status": "success",
@@ -201,7 +201,7 @@
       "f1": 0.8648648648648649,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.3139255046844482
+      "elapsed": 2.7819414138793945
     },
     "MU": {
       "status": "success",
@@ -212,7 +212,7 @@
       "f1": 0.8947368421052632,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.625185489654541
+      "elapsed": 2.172341823577881
     },
     "AMAT": {
       "status": "success",
@@ -223,7 +223,7 @@
       "f1": 0.6298342541436464,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5740509033203125
+      "elapsed": 2.390592098236084
     },
     "KLAC": {
       "status": "success",
@@ -234,7 +234,7 @@
       "f1": 0.8110599078341014,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5433242321014404
+      "elapsed": 2.3344433307647705
     },
     "LRCX": {
       "status": "success",
@@ -245,7 +245,7 @@
       "f1": 0.9285714285714286,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.8430097103118896
+      "elapsed": 2.091611385345459
     },
     "ADI": {
       "status": "success",
@@ -256,7 +256,7 @@
       "f1": 0.6060606060606061,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.651698350906372
+      "elapsed": 2.771559476852417
     },
     "MCHP": {
       "status": "success",
@@ -267,7 +267,7 @@
       "f1": 0.43478260869565216,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.688882827758789
+      "elapsed": 2.391878843307495
     },
     "PYPL": {
       "status": "success",
@@ -278,12 +278,12 @@
       "f1": 0.4305555555555556,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 1.7035012245178223
+      "elapsed": 1.5398409366607666
     },
     "SQ": {
       "status": "failed",
       "error": "No price data available for SQ",
-      "elapsed": 2.334411382675171
+      "elapsed": 1.893221139907837
     },
     "V": {
       "status": "success",
@@ -294,7 +294,7 @@
       "f1": 0.6577181208053692,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.346544027328491
+      "elapsed": 1.9765760898590088
     },
     "MA": {
       "status": "success",
@@ -305,7 +305,7 @@
       "f1": 0.82,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.356780767440796
+      "elapsed": 2.069324254989624
     },
     "JPM": {
       "status": "success",
@@ -316,7 +316,7 @@
       "f1": 0.8165137614678899,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.683025360107422
+      "elapsed": 2.5894179344177246
     },
     "BAC": {
       "status": "success",
@@ -327,7 +327,7 @@
       "f1": 0.8611111111111112,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.4446911811828613
+      "elapsed": 2.209686279296875
     },
     "WFC": {
       "status": "success",
@@ -338,7 +338,7 @@
       "f1": 0.8045977011494253,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.6256487369537354
+      "elapsed": 2.4783148765563965
     },
     "GS": {
       "status": "success",
@@ -349,7 +349,7 @@
       "f1": 0.8384279475982532,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7477474212646484
+      "elapsed": 2.405951499938965
     },
     "MS": {
       "status": "success",
@@ -360,7 +360,7 @@
       "f1": 0.847457627118644,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.4492416381835938
+      "elapsed": 2.425985336303711
     },
     "DIS": {
       "status": "success",
@@ -371,7 +371,7 @@
       "f1": 0.6551724137931034,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.6138863563537598
+      "elapsed": 2.6169936656951904
     },
     "NKE": {
       "status": "success",
@@ -382,7 +382,7 @@
       "f1": 0.6129032258064516,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7257943153381348
+      "elapsed": 2.64652943611145
     },
     "SBUX": {
       "status": "success",
@@ -393,7 +393,7 @@
       "f1": 0.6298342541436464,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.8225808143615723
+      "elapsed": 2.4130539894104004
     },
     "MCD": {
       "status": "success",
@@ -404,7 +404,7 @@
       "f1": 0.7337278106508875,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.2971348762512207
+      "elapsed": 2.4610700607299805
     },
     "KO": {
       "status": "success",
@@ -415,7 +415,7 @@
       "f1": 0.625,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5331106185913086
+      "elapsed": 2.427044630050659
     },
     "PEP": {
       "status": "success",
@@ -426,7 +426,7 @@
       "f1": 0.6890756302521008,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.733443260192871
+      "elapsed": 2.505805730819702
     },
     "WMT": {
       "status": "success",
@@ -437,7 +437,7 @@
       "f1": 0.9126984126984127,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7609610557556152
+      "elapsed": 2.1945443153381348
     },
     "TGT": {
       "status": "success",
@@ -448,7 +448,7 @@
       "f1": 0.8631578947368421,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.6523313522338867
+      "elapsed": 2.326101779937744
     },
     "HD": {
       "status": "success",
@@ -459,7 +459,7 @@
       "f1": 0.7218934911242604,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.63885760307312
+      "elapsed": 2.2993323802948
     },
     "LOW": {
       "status": "success",
@@ -470,7 +470,7 @@
       "f1": 0.6521739130434783,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.9896557331085205
+      "elapsed": 2.8374440670013428
     },
     "COST": {
       "status": "success",
@@ -481,7 +481,7 @@
       "f1": 0.41379310344827586,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7061398029327393
+      "elapsed": 2.4629409313201904
     },
     "PG": {
       "status": "success",
@@ -492,7 +492,7 @@
       "f1": 0.5977011494252874,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5860588550567627
+      "elapsed": 2.525789737701416
     },
     "TMO": {
       "status": "success",
@@ -503,7 +503,7 @@
       "f1": 0.8636363636363636,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.6922860145568848
+      "elapsed": 2.679396390914917
     },
     "ABBV": {
       "status": "success",
@@ -514,7 +514,7 @@
       "f1": 0.8255813953488372,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 1.6492054462432861
+      "elapsed": 1.6286792755126953
     },
     "JNJ": {
       "status": "success",
@@ -525,7 +525,7 @@
       "f1": 0.8863636363636364,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.691967487335205
+      "elapsed": 2.6870779991149902
     },
     "PFE": {
       "status": "success",
@@ -536,7 +536,7 @@
       "f1": 0.8304093567251462,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7878758907318115
+      "elapsed": 2.434988260269165
     },
     "MRK": {
       "status": "success",
@@ -547,7 +547,7 @@
       "f1": 0.6310160427807486,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.722351312637329
+      "elapsed": 2.629923105239868
     },
     "UNH": {
       "status": "success",
@@ -558,7 +558,7 @@
       "f1": 0.8834355828220859,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.933389663696289
+      "elapsed": 2.936218023300171
     },
     "CVS": {
       "status": "success",
@@ -569,7 +569,7 @@
       "f1": 0.85,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.720651388168335
+      "elapsed": 2.8429787158966064
     },
     "CI": {
       "status": "success",
@@ -580,7 +580,7 @@
       "f1": 0.735632183908046,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7938361167907715
+      "elapsed": 2.4770262241363525
     },
     "HUM": {
       "status": "success",
@@ -591,7 +591,7 @@
       "f1": 0.7102803738317757,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.87581205368042
+      "elapsed": 2.499620199203491
     },
     "ELV": {
       "status": "success",
@@ -602,7 +602,7 @@
       "f1": 0.7123287671232876,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5994317531585693
+      "elapsed": 2.7366716861724854
     },
     "DHR": {
       "status": "success",
@@ -613,7 +613,7 @@
       "f1": 0.48598130841121495,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.1086490154266357
+      "elapsed": 2.5913827419281006
     },
     "GE": {
       "status": "success",
@@ -624,7 +624,7 @@
       "f1": 0.8103448275862069,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.6459953784942627
+      "elapsed": 2.471815824508667
     },
     "BA": {
       "status": "success",
@@ -635,7 +635,7 @@
       "f1": 0.6782608695652174,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.867000102996826
+      "elapsed": 2.3335137367248535
     },
     "CAT": {
       "status": "success",
@@ -646,7 +646,7 @@
       "f1": 0.9363295880149812,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.532504081726074
+      "elapsed": 2.220735788345337
     },
     "DE": {
       "status": "success",
@@ -657,7 +657,7 @@
       "f1": 0.8356164383561644,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.772083282470703
+      "elapsed": 2.298544406890869
     },
     "MMM": {
       "status": "success",
@@ -668,7 +668,7 @@
       "f1": 0.7425149700598802,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.993999719619751
+      "elapsed": 2.532435655593872
     },
     "HON": {
       "status": "success",
@@ -679,7 +679,7 @@
       "f1": 0.803030303030303,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7304158210754395
+      "elapsed": 2.4493863582611084
     },
     "RTX": {
       "status": "success",
@@ -690,7 +690,7 @@
       "f1": 0.8548387096774194,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.4620819091796875
+      "elapsed": 2.2820966243743896
     },
     "LMT": {
       "status": "success",
@@ -701,7 +701,7 @@
       "f1": 0.6547619047619048,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5409862995147705
+      "elapsed": 2.295759916305542
     },
     "NOC": {
       "status": "success",
@@ -712,7 +712,7 @@
       "f1": 0.7933884297520661,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.1098597049713135
+      "elapsed": 2.269987106323242
     },
     "GD": {
       "status": "success",
@@ -723,7 +723,7 @@
       "f1": 0.875,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.4822444915771484
+      "elapsed": 2.3999552726745605
     },
     "LHX": {
       "status": "success",
@@ -734,7 +734,7 @@
       "f1": 0.8411214953271028,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.582721471786499
+      "elapsed": 2.2402522563934326
     },
     "XOM": {
       "status": "success",
@@ -745,7 +745,7 @@
       "f1": 0.9061224489795918,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.8364102840423584
+      "elapsed": 2.3431880474090576
     },
     "CVX": {
       "status": "success",
@@ -756,7 +756,7 @@
       "f1": 0.8484848484848485,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.0884041786193848
+      "elapsed": 2.4173178672790527
     },
     "SPY": {
       "status": "success",
@@ -767,7 +767,7 @@
       "f1": 0.8878923766816144,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.504672050476074
+      "elapsed": 2.228665590286255
     },
     "QQQ": {
       "status": "success",
@@ -778,7 +778,7 @@
       "f1": 0.8878923766816144,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.4154391288757324
+      "elapsed": 2.414846897125244
     },
     "DIA": {
       "status": "success",
@@ -789,7 +789,7 @@
       "f1": 0.9224489795918367,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5229177474975586
+      "elapsed": 2.1448192596435547
     },
     "IWM": {
       "status": "success",
@@ -800,7 +800,7 @@
       "f1": 0.9391304347826087,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5511083602905273
+      "elapsed": 2.215116262435913
     },
     "VOO": {
       "status": "success",
@@ -811,7 +811,7 @@
       "f1": 0.8828828828828829,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.144024133682251
+      "elapsed": 1.6886277198791504
     },
     "VTI": {
       "status": "success",
@@ -822,7 +822,7 @@
       "f1": 0.8828828828828829,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.2368874549865723
+      "elapsed": 2.1126527786254883
     },
     "XLK": {
       "status": "success",
@@ -833,7 +833,7 @@
       "f1": 0.8586956521739131,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.4683308601379395
+      "elapsed": 2.4950931072235107
     },
     "XLV": {
       "status": "success",
@@ -844,7 +844,7 @@
       "f1": 0.7906976744186046,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.802814245223999
+      "elapsed": 2.4581916332244873
     },
     "XLF": {
       "status": "success",
@@ -855,7 +855,7 @@
       "f1": 0.6144578313253012,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7160356044769287
+      "elapsed": 2.3397700786590576
     },
     "XLE": {
       "status": "success",
@@ -866,7 +866,7 @@
       "f1": 0.8333333333333334,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.997323989868164
+      "elapsed": 2.5971667766571045
     },
     "XLY": {
       "status": "success",
@@ -877,7 +877,7 @@
       "f1": 0.8804347826086957,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.6013197898864746
+      "elapsed": 2.1437931060791016
     },
     "VGT": {
       "status": "success",
@@ -888,7 +888,7 @@
       "f1": 0.8235294117647058,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7342751026153564
+      "elapsed": 2.4018161296844482
     },
     "BND": {
       "status": "success",
@@ -899,7 +899,7 @@
       "f1": 0.9263157894736842,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.2787160873413086
+      "elapsed": 2.041750907897949
     },
     "AGG": {
       "status": "success",
@@ -910,7 +910,7 @@
       "f1": 0.9239130434782609,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7197296619415283
+      "elapsed": 2.213701009750366
     },
     "TLT": {
       "status": "success",
@@ -921,7 +921,7 @@
       "f1": 0.8846153846153846,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.0514910221099854
+      "elapsed": 2.447155237197876
     },
     "VIG": {
       "status": "success",
@@ -932,7 +932,7 @@
       "f1": 0.8761061946902655,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.3820676803588867
+      "elapsed": 1.8844311237335205
     },
     "SCHD": {
       "status": "success",
@@ -943,7 +943,7 @@
       "f1": 0.9397590361445783,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.467940330505371
+      "elapsed": 2.0049192905426025
     },
     "VYM": {
       "status": "success",
@@ -954,7 +954,7 @@
       "f1": 0.9274193548387096,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.3861122131347656
+      "elapsed": 1.9649972915649414
     },
     "BTAL": {
       "status": "success",
@@ -965,7 +965,7 @@
       "f1": 0.6206896551724138,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.2467358112335205
+      "elapsed": 1.6940267086029053
     },
     "DBMF": {
       "status": "success",
@@ -976,7 +976,7 @@
       "f1": 0.8275862068965517,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 1.6986818313598633
+      "elapsed": 1.4514451026916504
     },
     "QMOM": {
       "status": "success",
@@ -987,7 +987,7 @@
       "f1": 0.9483568075117371,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 1.8685657978057861
+      "elapsed": 1.6439146995544434
     },
     "MNA": {
       "status": "success",
@@ -998,7 +998,7 @@
       "f1": 0.9090909090909091,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.2079460620880127
+      "elapsed": 1.6435177326202393
     },
     "VNQ": {
       "status": "success",
@@ -1009,7 +1009,7 @@
       "f1": 0.6825396825396826,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.254696846008301
+      "elapsed": 2.2184057235717773
     },
     "GLD": {
       "status": "success",
@@ -1020,7 +1020,7 @@
       "f1": 0.898876404494382,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.8265445232391357
+      "elapsed": 2.0919547080993652
     },
     "VXUS": {
       "status": "success",
@@ -1031,7 +1031,7 @@
       "f1": 0.928,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.193077564239502
+      "elapsed": 1.929079294204712
     },
     "INFY.BSE": {
       "status": "success",
@@ -1042,7 +1042,7 @@
       "f1": 0.528,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.5195047855377197
+      "elapsed": 2.252929925918579
     },
     "TCS.BSE": {
       "status": "success",
@@ -1053,7 +1053,7 @@
       "f1": 0.27848101265822783,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.126283645629883
+      "elapsed": 2.0364205837249756
     },
     "WIPRO.BSE": {
       "status": "success",
@@ -1064,7 +1064,7 @@
       "f1": 0.5135135135135135,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.1859583854675293
+      "elapsed": 2.017512798309326
     },
     "HCLTECH.BSE": {
       "status": "success",
@@ -1075,7 +1075,7 @@
       "f1": 0.6633663366336634,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 4.972411155700684
+      "elapsed": 2.1147124767303467
     },
     "TECHM.BSE": {
       "status": "success",
@@ -1086,7 +1086,7 @@
       "f1": 0.819672131147541,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.522423028945923
+      "elapsed": 2.157407760620117
     },
     "HDFCBANK.BSE": {
       "status": "success",
@@ -1097,7 +1097,7 @@
       "f1": 0.47619047619047616,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.9002513885498047
+      "elapsed": 2.025975465774536
     },
     "ICICIBANK.BSE": {
       "status": "success",
@@ -1108,7 +1108,7 @@
       "f1": 0.5692307692307692,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.1170432567596436
+      "elapsed": 1.959233045578003
     },
     "SBIN.BSE": {
       "status": "success",
@@ -1119,7 +1119,7 @@
       "f1": 0.9180327868852459,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.431305408477783
+      "elapsed": 2.2339484691619873
     },
     "KOTAKBANK.BSE": {
       "status": "success",
@@ -1130,7 +1130,7 @@
       "f1": 0.9133858267716536,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7297070026397705
+      "elapsed": 2.1806232929229736
     },
     "AXISBANK.BSE": {
       "status": "success",
@@ -1141,7 +1141,7 @@
       "f1": 0.8651162790697674,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.417100191116333
+      "elapsed": 2.2202353477478027
     },
     "BAJFINANCE.BSE": {
       "status": "success",
@@ -1152,7 +1152,7 @@
       "f1": 0.6896551724137931,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.411022186279297
+      "elapsed": 2.299769401550293
     },
     "BAJAJFINSV.BSE": {
       "status": "success",
@@ -1163,7 +1163,7 @@
       "f1": 0.7076923076923077,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 1.9490511417388916
+      "elapsed": 1.7822175025939941
     },
     "INDUSINDBK.BSE": {
       "status": "success",
@@ -1174,7 +1174,7 @@
       "f1": 0.5581395348837209,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 4.135831356048584
+      "elapsed": 2.0667717456817627
     },
     "HINDUNILVR.BSE": {
       "status": "success",
@@ -1185,7 +1185,7 @@
       "f1": 0.7184466019417476,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.2216713428497314
+      "elapsed": 2.019117593765259
     },
     "ITC.BSE": {
       "status": "success",
@@ -1196,7 +1196,7 @@
       "f1": 0.2857142857142857,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.1792144775390625
+      "elapsed": 1.887157917022705
     },
     "NESTLEIND.BSE": {
       "status": "success",
@@ -1207,7 +1207,7 @@
       "f1": 0.7777777777777778,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.8951354026794434
+      "elapsed": 2.0800702571868896
     },
     "BRITANNIA.BSE": {
       "status": "success",
@@ -1218,7 +1218,7 @@
       "f1": 0.7282608695652174,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.189551591873169
+      "elapsed": 2.159944772720337
     },
     "TATACONSUM.BSE": {
       "status": "success",
@@ -1229,7 +1229,7 @@
       "f1": 0.5578231292517006,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.2835192680358887
+      "elapsed": 2.0565025806427
     },
     "ASIANPAINT.BSE": {
       "status": "success",
@@ -1240,7 +1240,7 @@
       "f1": 0.5242718446601942,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.692903995513916
+      "elapsed": 2.038780450820923
     },
     "TITAN.BSE": {
       "status": "success",
@@ -1251,7 +1251,7 @@
       "f1": 0.919431279620853,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.3722262382507324
+      "elapsed": 2.1824889183044434
     },
     "RELIANCE.BSE": {
       "status": "success",
@@ -1262,7 +1262,7 @@
       "f1": 0.85,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.375800848007202
+      "elapsed": 1.9537262916564941
     },
     "LT.BSE": {
       "status": "success",
@@ -1273,7 +1273,7 @@
       "f1": 0.7228915662650602,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.4392125606536865
+      "elapsed": 2.0364036560058594
     },
     "MARUTI.BSE": {
       "status": "success",
@@ -1284,12 +1284,12 @@
       "f1": 0.6629834254143646,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.7246530055999756
+      "elapsed": 2.257242441177368
     },
     "TATAMOTORS.BSE": {
       "status": "failed",
       "error": "No price data available for TATAMOTORS.BSE",
-      "elapsed": 2.673485517501831
+      "elapsed": 2.150777816772461
     },
     "EICHERMOT.BSE": {
       "status": "success",
@@ -1300,7 +1300,7 @@
       "f1": 0.9,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.3107426166534424
+      "elapsed": 1.914231538772583
     },
     "ULTRACEMCO.BSE": {
       "status": "success",
@@ -1311,7 +1311,7 @@
       "f1": 0.7310344827586207,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.743090867996216
+      "elapsed": 2.1499128341674805
     },
     "GRASIM.BSE": {
       "status": "success",
@@ -1322,7 +1322,7 @@
       "f1": 0.8263473053892215,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.425316572189331
+      "elapsed": 2.4405581951141357
     },
     "SUNPHARMA.BSE": {
       "status": "success",
@@ -1333,7 +1333,7 @@
       "f1": 0.8677248677248677,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.59968900680542
+      "elapsed": 2.317779064178467
     },
     "DRREDDY.BSE": {
       "status": "success",
@@ -1344,7 +1344,7 @@
       "f1": 0.8225806451612904,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 4.058176040649414
+      "elapsed": 2.0591931343078613
     },
     "CIPLA.BSE": {
       "status": "success",
@@ -1355,7 +1355,7 @@
       "f1": 0.7256637168141593,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.785931348800659
+      "elapsed": 1.94157075881958
     },
     "DIVISLAB.BSE": {
       "status": "success",
@@ -1366,7 +1366,7 @@
       "f1": 0.6950354609929078,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 4.01428484916687
+      "elapsed": 2.286133050918579
     },
     "APOLLOHOSP.BSE": {
       "status": "success",
@@ -1377,7 +1377,7 @@
       "f1": 0.576271186440678,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.4491074085235596
+      "elapsed": 2.4830405712127686
     },
     "ONGC.BSE": {
       "status": "success",
@@ -1388,7 +1388,7 @@
       "f1": 0.9142857142857143,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.264423370361328
+      "elapsed": 2.087254524230957
     },
     "NTPC.BSE": {
       "status": "success",
@@ -1399,7 +1399,7 @@
       "f1": 0.6417910447761194,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.3111181259155273
+      "elapsed": 1.9798827171325684
     },
     "POWERGRID.BSE": {
       "status": "success",
@@ -1410,7 +1410,7 @@
       "f1": 0.672566371681416,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.1331777572631836
+      "elapsed": 1.906785249710083
     },
     "BPCL.BSE": {
       "status": "success",
@@ -1421,7 +1421,7 @@
       "f1": 0.6257668711656442,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.1791088581085205
+      "elapsed": 1.9499084949493408
     },
     "COALINDIA.BSE": {
       "status": "success",
@@ -1432,7 +1432,7 @@
       "f1": 0.6491228070175439,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.3959858417510986
+      "elapsed": 1.8081755638122559
     },
     "TATASTEEL.BSE": {
       "status": "success",
@@ -1443,7 +1443,7 @@
       "f1": 0.7909604519774012,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.3013274669647217
+      "elapsed": 2.273897886276245
     },
     "HINDALCO.BSE": {
       "status": "success",
@@ -1454,7 +1454,7 @@
       "f1": 0.8979591836734694,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.571589708328247
+      "elapsed": 1.9915192127227783
     },
     "JSWSTEEL.BSE": {
       "status": "success",
@@ -1465,7 +1465,7 @@
       "f1": 0.8956521739130435,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.3727059364318848
+      "elapsed": 1.961261510848999
     },
     "BHARTIARTL.BSE": {
       "status": "success",
@@ -1476,7 +1476,7 @@
       "f1": 0.7023809523809523,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.756326675415039
+      "elapsed": 2.0121450424194336
     },
     "ADANIENT.BSE": {
       "status": "success",
@@ -1487,7 +1487,7 @@
       "f1": 0.8062015503875969,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 4.240038156509399
+      "elapsed": 2.3035316467285156
     },
     "ADANIPORTS.BSE": {
       "status": "success",
@@ -1498,7 +1498,7 @@
       "f1": 0.6046511627906976,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 3.7432477474212646
+      "elapsed": 2.136003255844116
     },
     "EURUSD=X": {
       "status": "success",
@@ -1509,7 +1509,7 @@
       "f1": 0.8736842105263158,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 4.457495212554932
+      "elapsed": 1.8036141395568848
     },
     "GBPUSD=X": {
       "status": "success",
@@ -1520,7 +1520,7 @@
       "f1": 0.6490066225165563,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 3.41711688041687
+      "elapsed": 1.6659283638000488
     },
     "USDJPY=X": {
       "status": "success",
@@ -1531,7 +1531,7 @@
       "f1": 0.8,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 2.6049914360046387
+      "elapsed": 1.7249727249145508
     },
     "USDINR=X": {
       "status": "success",
@@ -1542,7 +1542,7 @@
       "f1": 0.9244444444444444,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 2.19697642326355
+      "elapsed": 1.3293108940124512
     },
     "AUDUSD=X": {
       "status": "success",
@@ -1553,7 +1553,7 @@
       "f1": 0.7698744769874477,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 2.9338037967681885
+      "elapsed": 1.4678869247436523
     },
     "USDCAD=X": {
       "status": "success",
@@ -1564,7 +1564,7 @@
       "f1": 0.7734806629834254,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 2.5178444385528564
+      "elapsed": 1.4752552509307861
     },
     "USDCHF=X": {
       "status": "success",
@@ -1575,7 +1575,7 @@
       "f1": 0.6260869565217392,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 2.0455286502838135
+      "elapsed": 1.6078245639801025
     },
     "NZDUSD=X": {
       "status": "success",
@@ -1586,7 +1586,7 @@
       "f1": 0.7286821705426356,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 1.677321434020996
+      "elapsed": 1.375856637954712
     },
     "EURGBP=X": {
       "status": "success",
@@ -1597,73 +1597,73 @@
       "f1": 0.6326530612244898,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 2.6781015396118164
+      "elapsed": 1.4447529315948486
     },
     "EURJPY=X": {
       "status": "success",
       "accuracy": 0.8639455782312925,
       "calibrated_accuracy": 0.8639455782312925,
-      "precision": 0.863013698630137,
+      "precision": 0.8639455782312925,
       "recall": 1.0,
-      "f1": 0.9264705882352942,
+      "f1": 0.927007299270073,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 2.119399070739746
+      "elapsed": 1.5838663578033447
     },
     "GC=F": {
       "status": "success",
       "accuracy": 0.7428571428571429,
-      "calibrated_accuracy": 0.9333333333333333,
+      "calibrated_accuracy": 0.9523809523809523,
       "precision": 0.7428571428571429,
       "recall": 1.0,
       "f1": 0.8524590163934426,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.9480745792388916
+      "elapsed": 1.5949478149414062
     },
     "SI=F": {
       "status": "success",
       "accuracy": 0.7738095238095238,
-      "calibrated_accuracy": 0.7857142857142857,
+      "calibrated_accuracy": 0.7976190476190477,
       "precision": 0.7738095238095238,
       "recall": 1.0,
       "f1": 0.87248322147651,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 1.9584918022155762
+      "elapsed": 1.3674206733703613
     },
     "CL=F": {
       "status": "success",
-      "accuracy": 0.5714285714285714,
-      "calibrated_accuracy": 0.7904761904761904,
-      "precision": 0.7857142857142857,
-      "recall": 0.4782608695652174,
-      "f1": 0.5945945945945946,
+      "accuracy": 0.580952380952381,
+      "calibrated_accuracy": 0.8,
+      "precision": 0.7777777777777778,
+      "recall": 0.5072463768115942,
+      "f1": 0.6140350877192983,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.8887572288513184
+      "elapsed": 1.3179569244384766
     },
     "NG=F": {
       "status": "success",
       "accuracy": 0.8928571428571429,
       "calibrated_accuracy": 0.8928571428571429,
-      "precision": 0.9736842105263158,
-      "recall": 0.8222222222222222,
-      "f1": 0.891566265060241,
+      "precision": 0.9743589743589743,
+      "recall": 0.8260869565217391,
+      "f1": 0.8941176470588236,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.512024402618408
+      "elapsed": 1.603017807006836
     },
     "HG=F": {
       "status": "success",
       "accuracy": 0.8285714285714286,
-      "calibrated_accuracy": 0.9428571428571428,
-      "precision": 0.8695652173913043,
-      "recall": 0.9302325581395349,
-      "f1": 0.898876404494382,
+      "calibrated_accuracy": 0.9333333333333333,
+      "precision": 0.8269230769230769,
+      "recall": 1.0,
+      "f1": 0.9052631578947369,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.316286563873291
+      "elapsed": 1.482607364654541
     },
     "PL=F": {
       "status": "success",
@@ -1674,29 +1674,29 @@
       "f1": 0.0,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 1.6746633052825928
+      "elapsed": 1.0597472190856934
     },
     "ZC=F": {
       "status": "success",
-      "accuracy": 0.7619047619047619,
-      "calibrated_accuracy": 0.8761904761904762,
+      "accuracy": 0.7523809523809524,
+      "calibrated_accuracy": 0.8095238095238095,
       "precision": 1.0,
-      "recall": 0.6835443037974683,
-      "f1": 0.8120300751879699,
+      "recall": 0.6708860759493671,
+      "f1": 0.803030303030303,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 3.650693655014038
+      "elapsed": 1.6022846698760986
     },
     "ZW=F": {
       "status": "success",
-      "accuracy": 0.6571428571428571,
-      "calibrated_accuracy": 0.9523809523809523,
-      "precision": 0.9411764705882353,
-      "recall": 0.5925925925925926,
-      "f1": 0.7272727272727273,
+      "accuracy": 0.4642857142857143,
+      "calibrated_accuracy": 0.9642857142857143,
+      "precision": 1.0,
+      "recall": 0.2857142857142857,
+      "f1": 0.4444444444444444,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 1.7634141445159912
+      "elapsed": 1.342560052871704
     },
     "ZS=F": {
       "status": "success",
@@ -1707,7 +1707,7 @@
       "f1": 0.9032258064516129,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.587608575820923
+      "elapsed": 1.4711754322052002
     },
     "^TNX": {
       "status": "success",
@@ -1718,7 +1718,7 @@
       "f1": 0.8468468468468469,
       "n_features": 72,
       "ensemble": true,
-      "elapsed": 1.972238540649414
+      "elapsed": 1.9918241500854492
     },
     "^IRX": {
       "status": "success",
@@ -1729,7 +1729,7 @@
       "f1": 0.06060606060606061,
       "n_features": 74,
       "ensemble": true,
-      "elapsed": 2.544912576675415
+      "elapsed": 1.5404267311096191
     },
     "^FVX": {
       "status": "success",
@@ -1740,7 +1740,7 @@
       "f1": 0.7419354838709677,
       "n_features": 74,
       "ensemble": true,
-      "elapsed": 2.1780142784118652
+      "elapsed": 1.5876433849334717
     },
     "^TYX": {
       "status": "success",
@@ -1751,18 +1751,18 @@
       "f1": 0.8592592592592593,
       "n_features": 74,
       "ensemble": true,
-      "elapsed": 2.1425912380218506
+      "elapsed": 1.646918535232544
     },
     "BTC-USD": {
       "status": "success",
-      "accuracy": 0.8015873015873016,
-      "calibrated_accuracy": 0.8174603174603174,
-      "precision": 0.7647058823529411,
-      "recall": 0.6046511627906976,
-      "f1": 0.6753246753246753,
+      "accuracy": 0.7936507936507936,
+      "calibrated_accuracy": 0.8333333333333334,
+      "precision": 0.75,
+      "recall": 0.6136363636363636,
+      "f1": 0.675,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 2.243849992752075
+      "elapsed": 1.9701638221740723
     },
     "ETH-USD": {
       "status": "success",
@@ -1773,29 +1773,29 @@
       "f1": 0.5882352941176471,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.25368070602417
+      "elapsed": 1.9916462898254395
     },
     "SOL-USD": {
       "status": "success",
-      "accuracy": 0.8027210884353742,
-      "calibrated_accuracy": 0.8435374149659864,
-      "precision": 0.6666666666666666,
-      "recall": 0.5128205128205128,
-      "f1": 0.5797101449275363,
+      "accuracy": 0.8707482993197279,
+      "calibrated_accuracy": 0.8707482993197279,
+      "precision": 1.0,
+      "recall": 0.525,
+      "f1": 0.6885245901639344,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.0874221324920654
+      "elapsed": 2.0765433311462402
     },
     "BNB-USD": {
       "status": "success",
-      "accuracy": 0.5986394557823129,
+      "accuracy": 0.673469387755102,
       "calibrated_accuracy": 0.7755102040816326,
-      "precision": 0.4818181818181818,
-      "recall": 0.9636363636363636,
-      "f1": 0.6424242424242425,
+      "precision": 0.5393258426966292,
+      "recall": 0.8727272727272727,
+      "f1": 0.6666666666666666,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.2826850414276123
+      "elapsed": 2.125878095626831
     },
     "XRP-USD": {
       "status": "success",
@@ -1806,7 +1806,7 @@
       "f1": 0.6122448979591837,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.446472406387329
+      "elapsed": 1.8334240913391113
     },
     "ADA-USD": {
       "status": "success",
@@ -1817,7 +1817,7 @@
       "f1": 0.0,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.2187411785125732
+      "elapsed": 1.860527753829956
     },
     "DOGE-USD": {
       "status": "success",
@@ -1828,7 +1828,7 @@
       "f1": 0.35714285714285715,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.427419662475586
+      "elapsed": 1.876671552658081
     },
     "AVAX-USD": {
       "status": "success",
@@ -1839,33 +1839,33 @@
       "f1": 0.47619047619047616,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.2738850116729736
+      "elapsed": 2.0320231914520264
     },
     "DOT-USD": {
       "status": "success",
-      "accuracy": 0.8435374149659864,
+      "accuracy": 0.8707482993197279,
       "calibrated_accuracy": 0.891156462585034,
       "precision": 1.0,
-      "recall": 0.425,
-      "f1": 0.5964912280701754,
+      "recall": 0.525,
+      "f1": 0.6885245901639344,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.156259536743164
+      "elapsed": 1.8337843418121338
     },
     "LINK-USD": {
       "status": "success",
-      "accuracy": 0.7619047619047619,
-      "calibrated_accuracy": 0.7619047619047619,
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1": 0.0,
+      "accuracy": 0.7698412698412699,
+      "calibrated_accuracy": 0.8174603174603174,
+      "precision": 0.55,
+      "recall": 0.3548387096774194,
+      "f1": 0.43137254901960786,
       "n_features": 83,
       "ensemble": true,
-      "elapsed": 2.668996572494507
+      "elapsed": 1.7698001861572266
     }
   },
   "avg_accuracy": NaN,
   "avg_calibrated_accuracy": NaN,
-  "avg_f1": 0.7334191798585195,
+  "avg_f1": 0.7357598071789956,
   "median_accuracy": NaN
 }

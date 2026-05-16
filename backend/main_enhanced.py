@@ -1498,6 +1498,14 @@ def generate_response(message: str, user_id: Optional[str] = None,
 
         # ---- Currency intent short-circuits ---- #
         if intent == "currency_conversion":
+            # Extract forex pair from user message if symbol wasn't detected by NLP
+            if not symbol:
+                symbol = _extract_forex_symbol(message)
+            if not stock_data and symbol:
+                try:
+                    stock_data = fetch_stock_data(symbol)
+                except Exception:
+                    pass
             response_text = _handle_currency_conversion(symbol or 'USDINR=X', stock_data)
             if user_id and ENHANCED_MODULES_AVAILABLE:
                 try:
@@ -1717,6 +1725,82 @@ def handle_general_question(message: str) -> str:
             return response
     
     return "I'm here to help with stock analysis and predictions. What would you like to know?"
+
+
+def _extract_forex_symbol(message: str) -> Optional[str]:
+    """Extract a Yahoo Finance forex symbol from a user message like 'usd to inr'."""
+    msg = message.lower()
+    # Map common currency names/codes to standard 3-letter codes
+    _currency_aliases = {
+        'usd': 'USD', 'dollar': 'USD', 'dollars': 'USD', 'us dollar': 'USD',
+        'inr': 'INR', 'rupee': 'INR', 'rupees': 'INR', 'indian rupee': 'INR',
+        'eur': 'EUR', 'euro': 'EUR', 'euros': 'EUR',
+        'gbp': 'GBP', 'pound': 'GBP', 'pounds': 'GBP', 'british pound': 'GBP', 'sterling': 'GBP',
+        'jpy': 'JPY', 'yen': 'JPY', 'japanese yen': 'JPY',
+        'aud': 'AUD', 'australian dollar': 'AUD',
+        'cad': 'CAD', 'canadian dollar': 'CAD',
+        'chf': 'CHF', 'swiss franc': 'CHF', 'franc': 'CHF',
+        'nzd': 'NZD', 'new zealand dollar': 'NZD',
+    }
+    # Known Yahoo Finance forex pairs (base/quote)
+    _valid_pairs = {
+        ('USD', 'INR'): 'USDINR=X', ('INR', 'USD'): 'USDINR=X',
+        ('EUR', 'USD'): 'EURUSD=X', ('USD', 'EUR'): 'EURUSD=X',
+        ('GBP', 'USD'): 'GBPUSD=X', ('USD', 'GBP'): 'GBPUSD=X',
+        ('USD', 'JPY'): 'USDJPY=X', ('JPY', 'USD'): 'USDJPY=X',
+        ('AUD', 'USD'): 'AUDUSD=X', ('USD', 'AUD'): 'AUDUSD=X',
+        ('USD', 'CAD'): 'USDCAD=X', ('CAD', 'USD'): 'USDCAD=X',
+        ('USD', 'CHF'): 'USDCHF=X', ('CHF', 'USD'): 'USDCHF=X',
+        ('NZD', 'USD'): 'NZDUSD=X', ('USD', 'NZD'): 'NZDUSD=X',
+        ('EUR', 'GBP'): 'EURGBP=X', ('GBP', 'EUR'): 'EURGBP=X',
+        ('EUR', 'JPY'): 'EURJPY=X', ('JPY', 'EUR'): 'EURJPY=X',
+        ('EUR', 'INR'): 'EURINR=X', ('INR', 'EUR'): 'EURINR=X',
+        ('GBP', 'INR'): 'GBPINR=X', ('INR', 'GBP'): 'GBPINR=X',
+    }
+    # Try to find "X to Y" or "X into Y" or "X in Y" pattern
+    m = re.search(
+        r'(\b(?:us dollar|australian dollar|canadian dollar|new zealand dollar|british pound'
+        r'|swiss franc|japanese yen|indian rupee'
+        r'|usd|dollar|dollars|eur|euro|euros|gbp|pound|pounds|sterling'
+        r'|jpy|yen|aud|cad|chf|nzd|inr|rupee|rupees|franc)\b)'
+        r'\s+(?:to|into|in|vs|versus)\s+'
+        r'(\b(?:us dollar|australian dollar|canadian dollar|new zealand dollar|british pound'
+        r'|swiss franc|japanese yen|indian rupee'
+        r'|usd|dollar|dollars|eur|euro|euros|gbp|pound|pounds|sterling'
+        r'|jpy|yen|aud|cad|chf|nzd|inr|rupee|rupees|franc)\b)',
+        msg,
+    )
+    if m:
+        from_code = _currency_aliases.get(m.group(1))
+        to_code = _currency_aliases.get(m.group(2))
+        if from_code and to_code and from_code != to_code:
+            pair = _valid_pairs.get((from_code, to_code))
+            if pair:
+                return pair
+            # Fallback: construct symbol (base + quote + =X)
+            return f"{from_code}{to_code}=X"
+    # Fallback: look for any two distinct currency codes in the message
+    found = []
+    # Check longer aliases first to avoid partial matches
+    for alias in sorted(_currency_aliases.keys(), key=len, reverse=True):
+        if re.search(r'\b' + re.escape(alias) + r'\b', msg):
+            code = _currency_aliases[alias]
+            if code not in found:
+                found.append(code)
+            if len(found) == 2:
+                break
+    if len(found) == 2:
+        pair = _valid_pairs.get((found[0], found[1]))
+        if pair:
+            return pair
+        return f"{found[0]}{found[1]}=X"
+    # Single currency mentioned: assume USD as the other side
+    if len(found) == 1 and found[0] != 'USD':
+        pair = _valid_pairs.get(('USD', found[0]))
+        if pair:
+            return pair
+        return f"USD{found[0]}=X"
+    return None
 
 
 def _handle_currency_conversion(symbol: str, stock_data: Optional[Dict] = None) -> str:

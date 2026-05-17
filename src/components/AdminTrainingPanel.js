@@ -22,45 +22,50 @@ export default function AdminTrainingPanel({ title = 'Model training pipeline' }
   const [trainMode, setTrainMode] = useState('quick');
   const [commitMsg, setCommitMsg] = useState('');
 
-  const loadPipelineStatus = useCallback(async () => {
+  const pollStatus = useCallback(async () => {
+    // Check pipeline process status
+    let plRunning = false;
+    let plManaged = false;
     try {
       const data = await getPipelineStatus();
-      setPipelineRunning(data.running);
-      setPipelineManaged(data.managed);
+      plRunning = data.running;
+      plManaged = data.managed;
     } catch {
-      setPipelineRunning(false);
-      setPipelineManaged(false);
+      // endpoint failed - don't assume not running yet
     }
-  }, []);
 
-  const loadTraining = useCallback(async () => {
+    // Check training status (also proves pipeline is reachable)
+    let tStatus = null;
     try {
-      const data = await getTrainingStatus();
-      setTrainingStatus(data);
+      tStatus = await getTrainingStatus();
     } catch (e) {
-      setTrainingStatus({ status: 'unavailable', error: e.message });
+      tStatus = { status: 'unavailable', error: e.message };
     }
+
+    // If training status came back successfully, the pipeline IS running
+    // even if the pipeline-status endpoint failed
+    const trainingReachable = tStatus && tStatus.status !== 'unavailable';
+    setPipelineRunning(plRunning || trainingReachable);
+    setPipelineManaged(plManaged);
+    setTrainingStatus(tStatus);
   }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      await Promise.all([loadPipelineStatus(), loadTraining()]);
+      await pollStatus();
     } catch (e) {
       toast.error(e.response?.data?.detail || e.message || 'Failed to load status');
     } finally {
       setLoading(false);
     }
-  }, [loadPipelineStatus, loadTraining]);
+  }, [pollStatus]);
 
   useEffect(() => {
     refresh();
-    const id = setInterval(() => {
-      loadPipelineStatus();
-      loadTraining();
-    }, 5000);
+    const id = setInterval(pollStatus, 5000);
     return () => clearInterval(id);
-  }, [refresh, loadPipelineStatus, loadTraining]);
+  }, [refresh, pollStatus]);
 
   const handleStartPipeline = async () => {
     setStartingPipeline(true);
@@ -98,7 +103,7 @@ export default function AdminTrainingPanel({ title = 'Model training pipeline' }
       else if (action === 'push') result = await pushModels();
       else result = await trainCommitPush({ mode: trainMode, message: commitMsg || undefined });
       toast.success(result.message || 'Started');
-      loadTraining();
+      pollStatus();
     } catch (err) {
       const detail = err.response?.data?.detail;
       toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Failed');

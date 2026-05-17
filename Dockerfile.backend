@@ -19,6 +19,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
+    git \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -33,11 +34,13 @@ COPY nlp_processor.py .
 COPY data_pipeline.py .
 COPY main.py .
 COPY config.py .
+COPY train_pipe.py .
+COPY train_models.py .
 COPY models/ ./models/
 
 COPY --from=frontend-build /fe/build ./static/ui
 
-RUN mkdir -p data
+RUN mkdir -p data logs
 
 ENV PYTHONPATH=/app
 ENV OLLAMA_BASE_URL=http://localhost:11434

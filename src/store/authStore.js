@@ -25,7 +25,7 @@ const useAuthStore = create((set, get) => ({
   },
 
   login: async (email, password) => {
-    const data = await loginUser(email, password);
+    const data = await loginUser(email.trim().toLowerCase(), password);
     const { access_token, refresh_token } = data;
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('refresh_token', refresh_token);
@@ -36,7 +36,7 @@ const useAuthStore = create((set, get) => ({
 
   register: async (email, password, firstName, lastName, username) => {
     await registerUser({
-      email,
+      email: email.trim().toLowerCase(),
       password,
       first_name: firstName,
       last_name: lastName,

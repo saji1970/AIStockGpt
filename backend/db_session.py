@@ -4,6 +4,15 @@ Provides engine, session factory, and connection handling.
 """
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load backend/.env then repo-root .env (so local uvicorn sees DATABASE_URL)
+_root = Path(__file__).resolve().parent.parent
+load_dotenv(_root / "backend" / ".env")
+load_dotenv(_root / ".env")
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

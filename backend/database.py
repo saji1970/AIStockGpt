@@ -89,10 +89,11 @@ class DatabaseManager:
             session.close()
 
     def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        """Get user by email address"""
+        """Get user by email address (case-insensitive)"""
         session = self._get_session()
         try:
-            user = session.query(User).filter(User.email == email).first()
+            normalized = (email or "").strip().lower()
+            user = session.query(User).filter(func.lower(User.email) == normalized).first()
             if user:
                 result = self._user_to_dict(user)
                 result['user_id'] = user.id

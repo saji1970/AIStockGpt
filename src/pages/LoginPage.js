@@ -38,7 +38,11 @@ export default function LoginPage() {
       }
       navigate('/');
     } catch (err) {
-      const msg = err?.response?.data?.detail || err?.message || 'Something went wrong';
+      let msg = err?.response?.data?.detail || err?.message || 'Something went wrong';
+      if (err?.message === 'Network Error' || err?.code === 'ERR_NETWORK') {
+        msg =
+          'Cannot reach the API. Start the backend: uvicorn backend.main_enhanced:app --reload --port 8000';
+      }
       toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setLoading(false);

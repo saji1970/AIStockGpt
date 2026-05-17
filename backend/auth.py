@@ -191,7 +191,7 @@ class AuthManager:
     def authenticate_user(self, email: str, password: str) -> Optional[Dict[str, Any]]:
         """Authenticate a user with email and password"""
         try:
-            user = db_manager.get_user_by_email(email)
+            user = db_manager.get_user_by_email(email.strip().lower())
             if not user:
                 return None
             
@@ -215,7 +215,10 @@ class AuthManager:
     
     def login_user(self, user_data: UserLogin) -> Token:
         """Login a user and return tokens"""
-        user = self.authenticate_user(user_data.email, user_data.password)
+        user = self.authenticate_user(
+            (user_data.email or "").strip().lower(),
+            user_data.password,
+        )
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

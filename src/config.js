@@ -14,6 +14,10 @@ function resolveApiBaseUrl() {
   if (explicit !== undefined && explicit !== '') {
     return explicit;
   }
+  // CRA dev server: use package.json "proxy" (http://localhost:8000) via relative URLs
+  if (process.env.NODE_ENV === 'development') {
+    return '';
+  }
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host !== 'localhost' && host !== '127.0.0.1') {

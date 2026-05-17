@@ -9,6 +9,17 @@ and provides advanced features including user authentication, portfolio manageme
 
 import os
 import sys
+from pathlib import Path
+
+# Load .env before any backend module reads DATABASE_URL (critical for local login)
+try:
+    from dotenv import load_dotenv
+
+    _repo = Path(__file__).resolve().parent.parent
+    load_dotenv(_repo / "backend" / ".env")
+    load_dotenv(_repo / ".env")
+except ImportError:
+    pass
 
 # Before any TensorFlow import (e.g. via lstm_model): drop TF INFO/WARNING noise on CPU hosts.
 # Some XLA/CUDA "Unable to register ... factory" ERROR lines can still appear with GPU-enabled TF wheels on CPU-only machines; they are usually harmless.
@@ -3161,11 +3172,13 @@ async def startup_event():
     # Create database tables if they don't exist
     try:
         try:
-            from backend.db_session import engine
+            from backend.db_session import engine, DATABASE_URL
             from backend.models import Base
         except ImportError:
-            from db_session import engine
+            from db_session import engine, DATABASE_URL
             from models import Base
+        db_host = DATABASE_URL.split("@")[-1].split("/")[0] if "@" in DATABASE_URL else "unknown"
+        logger.info("Database target: %s", db_host)
         Base.metadata.create_all(bind=engine)
         if ENHANCED_MODULES_AVAILABLE:
             db_manager.ensure_admin_schema()
@@ -3237,7 +3250,13 @@ async def startup_event():
 
 
 def _mount_web_ui_if_present() -> None:
-    """Serve React build from static/ui (Railway combined deploy). API routes register first."""
+    """Serve React build from static/ui (Railway combined deploy).
+
+    StaticFiles with html=True only maps ``/`` -> ``index.html``.  For SPA
+    client-side routes like ``/admin``, ``/login``, ``/portfolio`` we need an
+    explicit catch-all that returns ``index.html`` so React Router can handle
+    the path.
+    """
     ui_dir = os.getenv(
         "STATIC_UI_DIR",
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "ui"),
@@ -3246,9 +3265,23 @@ def _mount_web_ui_if_present() -> None:
         return
     try:
         from fastapi.staticfiles import StaticFiles
+        from starlette.responses import FileResponse
 
-        app.mount("/", StaticFiles(directory=ui_dir, html=True), name="web-ui")
-        logger.info("Web UI mounted from %s (admin: /admin, login: /login)", ui_dir)
+        index_html = os.path.join(ui_dir, "index.html")
+
+        # Serve JS/CSS/media assets from the build directory
+        app.mount("/static", StaticFiles(directory=os.path.join(ui_dir, "static")), name="web-static")
+
+        # SPA catch-all: any GET that didn't match an API route returns index.html
+        @app.get("/{full_path:path}")
+        async def _spa_fallback(full_path: str):
+            # If the request maps to a real file in ui_dir, serve it (manifest.json, etc.)
+            file_path = os.path.join(ui_dir, full_path)
+            if full_path and os.path.isfile(file_path):
+                return FileResponse(file_path)
+            return FileResponse(index_html)
+
+        logger.info("Web UI mounted from %s with SPA fallback (admin: /admin, login: /login)", ui_dir)
     except Exception as e:
         logger.warning(f"Could not mount web UI: {e}")
 

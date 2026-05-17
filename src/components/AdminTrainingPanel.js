@@ -79,12 +79,29 @@ export default function AdminTrainingPanel({ title = 'Model training pipeline' }
         </div>
       ) : (
         <>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</p>
-            <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-auto max-h-48 text-gray-800 dark:text-gray-200">
-              {JSON.stringify(trainingStatus, null, 2)}
-            </pre>
-          </div>
+          {trainingStatus?.status === 'unavailable' ? (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 space-y-3">
+              <p className="text-sm font-semibold text-red-800 dark:text-red-200">
+                Training pipeline is not running
+              </p>
+              <p className="text-sm text-red-700 dark:text-red-300">
+                The training service runs separately from the main API. Start it on your local machine:
+              </p>
+              <pre className="text-xs bg-red-100 dark:bg-red-900/40 p-3 rounded-lg text-red-900 dark:text-red-100">
+                python train_pipe.py
+              </pre>
+              <p className="text-xs text-red-600 dark:text-red-400">
+                It will listen on <code>http://127.0.0.1:8090</code>. The admin panel will auto-detect it once running.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</p>
+              <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-auto max-h-48 text-gray-800 dark:text-gray-200">
+                {JSON.stringify(trainingStatus, null, 2)}
+              </pre>
+            </div>
+          )}
 
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200">
             Start the pipeline on this PC:{' '}

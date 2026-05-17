@@ -98,10 +98,13 @@ def _train_pipe_request(method: str, path: str, params: Optional[Dict] = None) -
         return body
     except HTTPException:
         raise
-    except requests.RequestException as e:
+    except requests.RequestException:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Training pipeline unreachable at {TRAIN_PIPE_URL}: {e}",
+            detail=(
+                f"Training pipeline is not running. "
+                f"Start it on your local machine with: python train_pipe.py"
+            ),
         )
 
 

@@ -56,16 +56,21 @@ class XGBoostPredictor:
     # ── training ────────────────────────────────────────────────
 
     def train(self, symbol: str, features_df: pd.DataFrame,
-              tuned_params: Optional[Dict] = None) -> Dict[str, Any]:
+              tuned_params: Optional[Dict] = None,
+              horizon: int = 21, min_rows: int = 126) -> Dict[str, Any]:
         """
         Walk-forward validation with ensemble training.
         Uses volatility-adjusted labels and early stopping.
         If tuned_params provided, uses those instead of defaults.
+
+        Args:
+            horizon: Forward-return look-ahead in bars (21 for daily, 6-12 for intraday).
+            min_rows: Minimum rows required for training.
         """
         feature_cols = self._get_feature_cols(features_df)
 
         # Create volatility-adjusted target
-        target = self._create_target(features_df)
+        target = self._create_target(features_df, horizon=horizon)
 
         X = features_df[feature_cols].values.astype(np.float32)
         y = target.values
@@ -75,12 +80,12 @@ class XGBoostPredictor:
         X = X[valid_mask]
         y = y[valid_mask]
 
-        if len(X) < 126:  # Need at least 6 months of data
-            raise ValueError(f"Insufficient data for {symbol}: {len(X)} rows")
+        if len(X) < min_rows:
+            raise ValueError(f"Insufficient data for {symbol}: {len(X)} rows (need {min_rows})")
 
         # Walk-forward validation
-        train_window = max(126, int(len(X) * 0.6))
-        test_window = 21
+        train_window = max(min_rows, int(len(X) * 0.6))
+        test_window = max(21, horizon)
 
         all_preds_xgb = []
         all_probs_xgb = []
@@ -188,6 +193,7 @@ class XGBoostPredictor:
             'xgb': final_xgb,
             'lgb': final_lgb,
             'calibrator': calibrator,
+            'horizon': horizon,
         }
         self.feature_cols[symbol] = feature_cols
         self.save_model(symbol)
@@ -273,8 +279,9 @@ class XGBoostPredictor:
         # Confidence from calibrated probability distance from 0.5
         confidence = abs(prob_calibrated - 0.5) * 2
 
-        # Expected return
-        returns = features_df['close'].pct_change(21).dropna()
+        # Expected return (use stored horizon or default 21)
+        model_horizon = bundle.get('horizon', 21)
+        returns = features_df['close'].pct_change(model_horizon).dropna()
         if len(returns) > 0:
             avg_pos = returns[returns > 0].mean() if (returns > 0).any() else 0.02
             avg_neg = returns[returns <= 0].mean() if (returns <= 0).any() else -0.02
@@ -290,7 +297,7 @@ class XGBoostPredictor:
             'expected_return': float(expected_return),
             'confidence': confidence,
             'feature_importance': top_features,
-            'horizon_days': 21,
+            'horizon_bars': model_horizon,
             'ensemble': lgb_model is not None,
         }
 

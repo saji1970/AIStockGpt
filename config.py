@@ -278,6 +278,32 @@ STOCK_CONFIGS = {
 }
 
 # =============================================================================
+# DAY TRADING CONFIGURATION
+# =============================================================================
+
+DAY_TRADING_CONFIG = {
+    'interval': '5min',             # Intraday bar interval
+    'months_history': 3,            # Months of intraday data to fetch
+    'target_horizon_bars': 12,      # Forward look-ahead in bars (12 x 5min = 60 min)
+    'min_training_rows': 500,       # Minimum intraday bars for training
+    'rate_limit_delay': 12.5,       # Seconds between Alpha Vantage API calls
+}
+
+# Liquid symbols suitable for day trading
+DAY_TRADING_SYMBOLS = [
+    # High-liquidity US tech
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'AMD',
+    # High-volume ETFs
+    'SPY', 'QQQ', 'IWM',
+    # Financials
+    'JPM', 'BAC',
+    # Energy
+    'XOM',
+]
+
+DAY_TRADING_QUICK_SYMBOLS = ['AAPL', 'MSFT', 'SPY', 'TSLA', 'NVDA']
+
+# =============================================================================
 # ADVANCED CONFIGURATION
 # =============================================================================
 

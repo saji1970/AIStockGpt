@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-05-17 04:57:48",
+  "type": "daytrading",
+  "horizon_bars": 12,
+  "total_symbols": 5,
+  "succeeded": 4,
+  "failed": 1,
+  "total_time": 93.85588383674622,
+  "results": {
+    "AAPL": {
+      "status": "success",
+      "accuracy": 0.7119047619047619,
+      "calibrated_accuracy": 0.7380952380952381,
+      "precision": 0.6986666666666667,
+      "recall": 0.9703703703703703,
+      "f1": 0.8124031007751938,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 21.3
+    },
+    "MSFT": {
+      "status": "success",
+      "accuracy": 0.5693581780538303,
+      "calibrated_accuracy": 0.6252587991718427,
+      "precision": 0.5472154963680388,
+      "recall": 0.9149797570850202,
+      "f1": 0.6848484848484848,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 18.4
+    },
+    "SPY": {
+      "status": "failed",
+      "error": "Insufficient data for SPY: 391 rows (need 500)",
+      "elapsed": 15.6
+    },
+    "TSLA": {
+      "status": "success",
+      "accuracy": 0.7520525451559934,
+      "calibrated_accuracy": 0.7701149425287356,
+      "precision": 0.7342995169082126,
+      "recall": 0.881159420289855,
+      "f1": 0.8010540184453228,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 19.7
+    },
+    "NVDA": {
+      "status": "success",
+      "accuracy": 0.6805555555555556,
+      "calibrated_accuracy": 0.6924603174603174,
+      "precision": 0.6688888888888889,
+      "recall": 0.9616613418530351,
+      "f1": 0.7889908256880734,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 18.8
+    }
+  },
+  "avg_accuracy": 0.6784677601675353,
+  "avg_calibrated_accuracy": 0.7064823243140335,
+  "avg_f1": 0.7718241074392688,
+  "median_accuracy": 0.6962301587301587
+}

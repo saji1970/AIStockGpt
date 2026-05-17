@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Cpu, Play, GitCommit, Upload, Loader2, RefreshCw, Power, Square } from 'lucide-react';
+import { Cpu, Play, GitCommit, Upload, Loader2, RefreshCw, Power, Square, CheckCircle2, XCircle, Clock, Activity } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   getTrainingStatus,
@@ -110,6 +110,14 @@ export default function AdminTrainingPanel({ title = 'Model training pipeline' }
     }
   };
 
+  const formatElapsed = (seconds) => {
+    if (!seconds) return '0s';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    if (mins === 0) return `${secs}s`;
+    return `${mins}m ${secs}s`;
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center justify-between">
@@ -193,11 +201,123 @@ export default function AdminTrainingPanel({ title = 'Model training pipeline' }
           </div>
 
           {trainingStatus && trainingStatus.status !== 'unavailable' && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Training Status</p>
-              <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-auto max-h-48 text-gray-800 dark:text-gray-200">
-                {JSON.stringify(trainingStatus, null, 2)}
-              </pre>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
+              {/* Status badge + elapsed time */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {trainingStatus.status === 'idle' && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                      Idle
+                    </span>
+                  )}
+                  {trainingStatus.status === 'training' && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Training
+                    </span>
+                  )}
+                  {trainingStatus.status === 'done' && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Completed
+                    </span>
+                  )}
+                  {trainingStatus.status === 'failed' && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                      <XCircle className="w-3 h-3" />
+                      Failed
+                    </span>
+                  )}
+                  {trainingStatus.mode && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      ({trainingStatus.mode} mode)
+                    </span>
+                  )}
+                </div>
+                {trainingStatus.elapsed > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <Clock className="w-3 h-3" />
+                    {formatElapsed(trainingStatus.elapsed)}
+                  </div>
+                )}
+              </div>
+
+              {/* Progress bar */}
+              {trainingStatus.total > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {trainingStatus.progress}/{trainingStatus.total} symbols
+                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                      {Math.round((trainingStatus.progress / trainingStatus.total) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className={`h-2.5 rounded-full transition-all duration-500 ease-out ${
+                        trainingStatus.status === 'failed'
+                          ? 'bg-red-500'
+                          : trainingStatus.status === 'done'
+                          ? 'bg-green-500'
+                          : 'bg-indigo-500'
+                      }`}
+                      style={{ width: `${(trainingStatus.progress / trainingStatus.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Current symbol being trained */}
+              {trainingStatus.status === 'training' && trainingStatus.current_symbol && (
+                <div className="flex items-center gap-2 text-sm text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg px-3 py-2">
+                  <Activity className="w-4 h-4 animate-pulse" />
+                  <span>
+                    Training <span className="font-semibold">{trainingStatus.current_symbol}</span>...
+                  </span>
+                </div>
+              )}
+
+              {/* Results summary */}
+              {trainingStatus.results && trainingStatus.results.total > 0 && (
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span className="font-medium">{trainingStatus.results.succeeded}</span>
+                    <span className="text-gray-500 dark:text-gray-400 text-xs">succeeded</span>
+                  </div>
+                  {trainingStatus.results.failed > 0 && (
+                    <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                      <XCircle className="w-4 h-4" />
+                      <span className="font-medium">{trainingStatus.results.failed}</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">failed</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Failed symbols list */}
+              {trainingStatus.results && trainingStatus.results.symbols_failed && trainingStatus.results.symbols_failed.length > 0 && (
+                <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded-lg px-3 py-2">
+                  <span className="font-medium">Failed:</span>{' '}
+                  {trainingStatus.results.symbols_failed.join(', ')}
+                </div>
+              )}
+
+              {/* Error message */}
+              {trainingStatus.status === 'failed' && trainingStatus.error && (
+                <div className="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+                  <span className="font-medium">Error:</span> {trainingStatus.error}
+                </div>
+              )}
+
+              {/* Idle state message */}
+              {trainingStatus.status === 'idle' && (!trainingStatus.results || !trainingStatus.results.total) && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No training in progress. Use the controls below to start training.
+                </p>
+              )}
             </div>
           )}
 

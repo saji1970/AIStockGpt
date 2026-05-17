@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Cpu, Play, GitCommit, Upload, Loader2, RefreshCw } from 'lucide-react';
+import { Cpu, Play, GitCommit, Upload, Loader2, RefreshCw, Power, Square } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   getTrainingStatus,
@@ -7,13 +7,31 @@ import {
   commitModels,
   pushModels,
   trainCommitPush,
+  getPipelineStatus,
+  startPipeline,
+  stopPipeline,
 } from '../services/adminApi';
 
 export default function AdminTrainingPanel({ title = 'Model training pipeline' }) {
   const [loading, setLoading] = useState(true);
   const [trainingStatus, setTrainingStatus] = useState(null);
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [pipelineManaged, setPipelineManaged] = useState(false);
+  const [startingPipeline, setStartingPipeline] = useState(false);
+  const [stoppingPipeline, setStoppingPipeline] = useState(false);
   const [trainMode, setTrainMode] = useState('quick');
   const [commitMsg, setCommitMsg] = useState('');
+
+  const loadPipelineStatus = useCallback(async () => {
+    try {
+      const data = await getPipelineStatus();
+      setPipelineRunning(data.running);
+      setPipelineManaged(data.managed);
+    } catch {
+      setPipelineRunning(false);
+      setPipelineManaged(false);
+    }
+  }, []);
 
   const loadTraining = useCallback(async () => {
     try {
@@ -27,19 +45,50 @@ export default function AdminTrainingPanel({ title = 'Model training pipeline' }
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      await loadTraining();
+      await Promise.all([loadPipelineStatus(), loadTraining()]);
     } catch (e) {
       toast.error(e.response?.data?.detail || e.message || 'Failed to load status');
     } finally {
       setLoading(false);
     }
-  }, [loadTraining]);
+  }, [loadPipelineStatus, loadTraining]);
 
   useEffect(() => {
     refresh();
-    const id = setInterval(loadTraining, 5000);
+    const id = setInterval(() => {
+      loadPipelineStatus();
+      loadTraining();
+    }, 5000);
     return () => clearInterval(id);
-  }, [refresh, loadTraining]);
+  }, [refresh, loadPipelineStatus, loadTraining]);
+
+  const handleStartPipeline = async () => {
+    setStartingPipeline(true);
+    try {
+      const result = await startPipeline();
+      toast.success(result.message || 'Pipeline started');
+      await refresh();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      toast.error(typeof detail === 'string' ? detail : 'Failed to start pipeline');
+    } finally {
+      setStartingPipeline(false);
+    }
+  };
+
+  const handleStopPipeline = async () => {
+    setStoppingPipeline(true);
+    try {
+      const result = await stopPipeline();
+      toast.success(result.message || 'Pipeline stopped');
+      await refresh();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      toast.error(typeof detail === 'string' ? detail : 'Failed to stop pipeline');
+    } finally {
+      setStoppingPipeline(false);
+    }
+  };
 
   const runTraining = async (action) => {
     try {
@@ -63,53 +112,89 @@ export default function AdminTrainingPanel({ title = 'Model training pipeline' }
           <Cpu className="w-5 h-5 text-indigo-600" />
           {title}
         </h3>
-        <button
-          type="button"
-          onClick={refresh}
-          className="flex items-center gap-2 px-3 py-2 text-sm border rounded-lg dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {pipelineRunning && pipelineManaged && (
+            <button
+              type="button"
+              onClick={handleStopPipeline}
+              disabled={stoppingPipeline}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-50"
+            >
+              {stoppingPipeline ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Square className="w-4 h-4" />
+              )}
+              Stop Pipeline
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={refresh}
+            className="flex items-center gap-2 px-3 py-2 text-sm border rounded-lg dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-8">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
         </div>
+      ) : !pipelineRunning ? (
+        /* ── Pipeline not running ── */
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700">
+            <Power className="w-8 h-8 text-gray-500 dark:text-gray-400" />
+          </div>
+          <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+            Training pipeline is not running
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+            The training service needs to be started before you can train models,
+            commit, or push to GitHub.
+          </p>
+          <button
+            type="button"
+            onClick={handleStartPipeline}
+            disabled={startingPipeline}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {startingPipeline ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Starting pipeline...
+              </>
+            ) : (
+              <>
+                <Power className="w-5 h-5" />
+                Start Pipeline
+              </>
+            )}
+          </button>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Or run manually: <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">python train_pipe.py</code>
+          </p>
+        </div>
       ) : (
+        /* ── Pipeline running - show training controls ── */
         <>
-          {trainingStatus?.status === 'unavailable' ? (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 space-y-3">
-              <p className="text-sm font-semibold text-red-800 dark:text-red-200">
-                Training pipeline is not running
-              </p>
-              <p className="text-sm text-red-700 dark:text-red-300">
-                The training service runs separately from the main API. Start it on your local machine:
-              </p>
-              <pre className="text-xs bg-red-100 dark:bg-red-900/40 p-3 rounded-lg text-red-900 dark:text-red-100">
-                python train_pipe.py
-              </pre>
-              <p className="text-xs text-red-600 dark:text-red-400">
-                It will listen on <code>http://127.0.0.1:8090</code>. The admin panel will auto-detect it once running.
-              </p>
-            </div>
-          ) : (
+          <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-4 py-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            Pipeline is running
+            {pipelineManaged && <span className="text-xs text-green-600 dark:text-green-500 ml-1">(managed)</span>}
+          </div>
+
+          {trainingStatus && trainingStatus.status !== 'unavailable' && (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Training Status</p>
               <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-auto max-h-48 text-gray-800 dark:text-gray-200">
                 {JSON.stringify(trainingStatus, null, 2)}
               </pre>
             </div>
           )}
-
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200">
-            Start the pipeline on this PC:{' '}
-            <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">python train_pipe.py</code>
-            <br />
-            Backend <code className="px-1">.env</code>:{' '}
-            <code className="px-1">TRAIN_PIPE_URL=http://127.0.0.1:8090</code>
-          </div>
 
           <div className="flex flex-wrap gap-3 items-end">
             <label className="text-sm dark:text-gray-300">

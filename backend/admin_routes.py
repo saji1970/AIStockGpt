@@ -4,7 +4,10 @@ User management, system analytics, env key status, and training pipeline proxy.
 """
 
 import os
+import sys
+import subprocess
 import logging
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -23,6 +26,40 @@ auth_manager = AuthManager()
 
 TRAIN_PIPE_URL = os.getenv("TRAIN_PIPE_URL", "http://127.0.0.1:8090").rstrip("/")
 TRAIN_PIPE_SECRET = os.getenv("TRAIN_PIPE_SECRET", "")
+
+# ── Training pipeline subprocess management ───────────────────
+_train_pipe_proc: Optional[subprocess.Popen] = None
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _is_pipeline_running() -> Dict[str, Any]:
+    """Check if train_pipe is reachable (spawned by us or started manually)."""
+    global _train_pipe_proc
+    # Check our managed subprocess first
+    managed_alive = False
+    managed_pid = None
+    if _train_pipe_proc is not None:
+        if _train_pipe_proc.poll() is None:
+            managed_alive = True
+            managed_pid = _train_pipe_proc.pid
+        else:
+            _train_pipe_proc = None  # process exited, clean up
+
+    # Probe the HTTP endpoint regardless
+    reachable = False
+    try:
+        resp = requests.get(f"{TRAIN_PIPE_URL}/status", timeout=3)
+        reachable = resp.status_code == 200
+    except Exception:
+        pass
+
+    return {
+        "running": managed_alive or reachable,
+        "managed": managed_alive,
+        "pid": managed_pid,
+        "reachable": reachable,
+        "url": TRAIN_PIPE_URL,
+    }
 
 
 # ── Request models ────────────────────────────────────────────
@@ -224,6 +261,104 @@ async def delete_user(user_id: str, admin: Dict = Depends(get_current_admin)):
     if not db_manager.delete_user(user_id):
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "User deleted", "user_id": user_id}
+
+
+# ── Training pipeline process management ──────────────────────
+
+@router.get("/training/pipeline-status")
+async def pipeline_status(_admin: Dict = Depends(get_current_admin)):
+    """Check whether the training pipeline process is running."""
+    return _is_pipeline_running()
+
+
+@router.post("/training/start-pipeline")
+async def start_pipeline(_admin: Dict = Depends(get_current_admin)):
+    """Spawn train_pipe.py as a subprocess."""
+    global _train_pipe_proc
+    info = _is_pipeline_running()
+    if info["running"]:
+        raise HTTPException(
+            status_code=409,
+            detail="Training pipeline is already running"
+            + (f" (PID {info['pid']})" if info["pid"] else " (external)"),
+        )
+
+    # Ensure logs directory exists
+    log_dir = os.path.join(_REPO_ROOT, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "train_pipe.log")
+
+    # Parse host/port from TRAIN_PIPE_URL
+    from urllib.parse import urlparse
+    parsed = urlparse(TRAIN_PIPE_URL)
+    host = parsed.hostname or "127.0.0.1"
+    port = str(parsed.port or 8090)
+
+    script = os.path.join(_REPO_ROOT, "train_pipe.py")
+    if not os.path.isfile(script):
+        raise HTTPException(status_code=500, detail=f"train_pipe.py not found at {script}")
+
+    try:
+        with open(log_file, "a") as lf:
+            lf.write(f"\n--- Pipeline starting at {datetime.utcnow().isoformat()} ---\n")
+            _train_pipe_proc = subprocess.Popen(
+                [sys.executable, script, "--host", host, "--port", port],
+                cwd=_REPO_ROOT,
+                stdout=lf,
+                stderr=subprocess.STDOUT,
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start pipeline: {e}")
+
+    # Wait for it to be ready (up to 8 seconds)
+    for _ in range(8):
+        time.sleep(1)
+        if _train_pipe_proc.poll() is not None:
+            _train_pipe_proc = None
+            raise HTTPException(
+                status_code=500,
+                detail="Pipeline process exited immediately. Check logs/train_pipe.log",
+            )
+        try:
+            resp = requests.get(f"{TRAIN_PIPE_URL}/status", timeout=2)
+            if resp.status_code == 200:
+                logger.info(f"Training pipeline started (PID {_train_pipe_proc.pid})")
+                return {
+                    "message": "Training pipeline started",
+                    "pid": _train_pipe_proc.pid,
+                    "url": TRAIN_PIPE_URL,
+                }
+        except Exception:
+            continue
+
+    return {
+        "message": "Pipeline process started but not yet responding — it may still be loading",
+        "pid": _train_pipe_proc.pid,
+        "url": TRAIN_PIPE_URL,
+    }
+
+
+@router.post("/training/stop-pipeline")
+async def stop_pipeline(_admin: Dict = Depends(get_current_admin)):
+    """Stop the managed training pipeline subprocess."""
+    global _train_pipe_proc
+    if _train_pipe_proc is None or _train_pipe_proc.poll() is not None:
+        _train_pipe_proc = None
+        raise HTTPException(
+            status_code=404,
+            detail="No managed pipeline process to stop (may have been started manually)",
+        )
+
+    pid = _train_pipe_proc.pid
+    _train_pipe_proc.terminate()
+    try:
+        _train_pipe_proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        _train_pipe_proc.kill()
+        _train_pipe_proc.wait(timeout=3)
+    _train_pipe_proc = None
+    logger.info(f"Training pipeline stopped (PID {pid})")
+    return {"message": "Training pipeline stopped", "pid": pid}
 
 
 # ── Training pipeline (proxy to train_pipe.py) ────────────────

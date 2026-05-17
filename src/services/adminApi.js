@@ -66,3 +66,18 @@ export const trainCommitPush = async (payload = {}) => {
   const { data } = await api.post('/api/admin/training/train-commit-push', payload);
   return data;
 };
+
+export const getPipelineStatus = async () => {
+  const { data } = await api.get('/api/admin/training/pipeline-status');
+  return data;
+};
+
+export const startPipeline = async () => {
+  const { data } = await api.post('/api/admin/training/start-pipeline');
+  return data;
+};
+
+export const stopPipeline = async () => {
+  const { data } = await api.post('/api/admin/training/stop-pipeline');
+  return data;
+};

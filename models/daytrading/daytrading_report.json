@@ -1,64 +1,983 @@
 {
-  "timestamp": "2026-05-17 04:57:48",
+  "timestamp": "2026-05-17 06:11:33",
   "type": "daytrading",
   "horizon_bars": 12,
-  "total_symbols": 5,
-  "succeeded": 4,
-  "failed": 1,
-  "total_time": 93.85588383674622,
+  "total_symbols": 112,
+  "succeeded": 68,
+  "failed": 44,
+  "total_time": 3872.3948304653168,
   "results": {
     "AAPL": {
       "status": "success",
-      "accuracy": 0.7119047619047619,
-      "calibrated_accuracy": 0.7380952380952381,
-      "precision": 0.6986666666666667,
-      "recall": 0.9703703703703703,
-      "f1": 0.8124031007751938,
+      "accuracy": 0.7436974789915967,
+      "calibrated_accuracy": 0.7801120448179272,
+      "precision": 0.7227722772277227,
+      "recall": 0.8946078431372549,
+      "f1": 0.7995618838992333,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 21.3
+      "elapsed": 8.2
     },
     "MSFT": {
       "status": "success",
-      "accuracy": 0.5693581780538303,
-      "calibrated_accuracy": 0.6252587991718427,
-      "precision": 0.5472154963680388,
-      "recall": 0.9149797570850202,
-      "f1": 0.6848484848484848,
+      "accuracy": 0.5701754385964912,
+      "calibrated_accuracy": 0.5989974937343359,
+      "precision": 0.5848670756646217,
+      "recall": 0.6713615023474179,
+      "f1": 0.6251366120218579,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 18.4
+      "elapsed": 8.0
     },
-    "SPY": {
-      "status": "failed",
-      "error": "Insufficient data for SPY: 391 rows (need 500)",
-      "elapsed": 15.6
+    "GOOGL": {
+      "status": "success",
+      "accuracy": 0.7037037037037037,
+      "calibrated_accuracy": 0.7129629629629629,
+      "precision": 0.6738351254480287,
+      "recall": 0.8995215311004785,
+      "f1": 0.7704918032786885,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.8
+    },
+    "AMZN": {
+      "status": "success",
+      "accuracy": 0.6727716727716728,
+      "calibrated_accuracy": 0.7094017094017094,
+      "precision": 0.6300174520069808,
+      "recall": 0.8657074340527577,
+      "f1": 0.7292929292929293,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 37.3
     },
     "TSLA": {
       "status": "success",
-      "accuracy": 0.7520525451559934,
-      "calibrated_accuracy": 0.7701149425287356,
-      "precision": 0.7342995169082126,
-      "recall": 0.881159420289855,
-      "f1": 0.8010540184453228,
+      "accuracy": 0.5961904761904762,
+      "calibrated_accuracy": 0.7057142857142857,
+      "precision": 0.7335907335907336,
+      "recall": 0.3486238532110092,
+      "f1": 0.472636815920398,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 19.7
+      "elapsed": 10.7
+    },
+    "META": {
+      "status": "success",
+      "accuracy": 0.5988095238095238,
+      "calibrated_accuracy": 0.6190476190476191,
+      "precision": 0.7142857142857143,
+      "recall": 0.41294642857142855,
+      "f1": 0.5233380480905233,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.0
     },
     "NVDA": {
       "status": "success",
-      "accuracy": 0.6805555555555556,
-      "calibrated_accuracy": 0.6924603174603174,
-      "precision": 0.6688888888888889,
-      "recall": 0.9616613418530351,
-      "f1": 0.7889908256880734,
+      "accuracy": 0.6511627906976745,
+      "calibrated_accuracy": 0.7253599114064231,
+      "precision": 0.6448598130841121,
+      "recall": 0.9078947368421053,
+      "f1": 0.7540983606557377,
       "n_features": 81,
       "ensemble": true,
-      "elapsed": 18.8
+      "elapsed": 8.7
+    },
+    "NFLX": {
+      "status": "success",
+      "accuracy": 0.6153846153846154,
+      "calibrated_accuracy": 0.7423687423687424,
+      "precision": 0.4945054945054945,
+      "recall": 0.7258064516129032,
+      "f1": 0.5882352941176471,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.5
+    },
+    "ADBE": {
+      "status": "success",
+      "accuracy": 0.5437430786267996,
+      "calibrated_accuracy": 0.6799557032115172,
+      "precision": 0.616519174041298,
+      "recall": 0.4256619144602851,
+      "f1": 0.5036144578313253,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 36.0
+    },
+    "CRM": {
+      "status": "success",
+      "accuracy": 0.7227513227513227,
+      "calibrated_accuracy": 0.7312169312169312,
+      "precision": 0.8571428571428571,
+      "recall": 0.48868778280542985,
+      "f1": 0.622478386167147,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 39.8
+    },
+    "ORCL": {
+      "status": "success",
+      "accuracy": 0.6161321671525753,
+      "calibrated_accuracy": 0.6802721088435374,
+      "precision": 0.6265243902439024,
+      "recall": 0.732620320855615,
+      "f1": 0.6754313886606409,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 37.6
+    },
+    "INTC": {
+      "status": "success",
+      "accuracy": 0.6638655462184874,
+      "calibrated_accuracy": 0.6685340802987861,
+      "precision": 0.6251482799525504,
+      "recall": 0.9229422066549913,
+      "f1": 0.7454031117397454,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.5
+    },
+    "AMD": {
+      "status": "success",
+      "accuracy": 0.7049486461251168,
+      "calibrated_accuracy": 0.746031746031746,
+      "precision": 0.6793650793650794,
+      "recall": 0.9801526717557252,
+      "f1": 0.8025,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 43.1
+    },
+    "IBM": {
+      "status": "success",
+      "accuracy": 0.673469387755102,
+      "calibrated_accuracy": 0.7777777777777778,
+      "precision": 0.6135922330097088,
+      "recall": 0.7802469135802469,
+      "f1": 0.6869565217391305,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.3
+    },
+    "CSCO": {
+      "status": "success",
+      "accuracy": 0.7363530778164924,
+      "calibrated_accuracy": 0.7409988385598142,
+      "precision": 0.7366310160427807,
+      "recall": 0.9483648881239243,
+      "f1": 0.8291948833709556,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.6
+    },
+    "QCOM": {
+      "status": "success",
+      "accuracy": 0.5865800865800865,
+      "calibrated_accuracy": 0.6645021645021645,
+      "precision": 0.6003521126760564,
+      "recall": 0.6875,
+      "f1": 0.6409774436090225,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.3
+    },
+    "AVGO": {
+      "status": "success",
+      "accuracy": 0.7182539682539683,
+      "calibrated_accuracy": 0.7371031746031746,
+      "precision": 0.7203513909224012,
+      "recall": 0.841025641025641,
+      "f1": 0.7760252365930599,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 43.3
+    },
+    "TXN": {
+      "status": "success",
+      "accuracy": 0.7065337763012182,
+      "calibrated_accuracy": 0.743078626799557,
+      "precision": 0.6834804539722572,
+      "recall": 0.9748201438848921,
+      "f1": 0.8035581912527798,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.2
+    },
+    "MU": {
+      "status": "success",
+      "accuracy": 0.7234432234432234,
+      "calibrated_accuracy": 0.7271062271062271,
+      "precision": 0.6974483596597812,
+      "recall": 0.9154704944178629,
+      "f1": 0.7917241379310345,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 43.6
+    },
+    "AMAT": {
+      "status": "success",
+      "accuracy": 0.6929057337220602,
+      "calibrated_accuracy": 0.738581146744412,
+      "precision": 0.7213930348258707,
+      "recall": 0.7461406518010292,
+      "f1": 0.7335581787521079,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 42.7
+    },
+    "KLAC": {
+      "status": "success",
+      "accuracy": 0.72,
+      "calibrated_accuracy": 0.7333333333333333,
+      "precision": 0.7142857142857143,
+      "recall": 0.8458961474036851,
+      "f1": 0.7745398773006135,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 42.7
+    },
+    "LRCX": {
+      "status": "success",
+      "accuracy": 0.6705539358600583,
+      "calibrated_accuracy": 0.6724975704567542,
+      "precision": 0.7328431372549019,
+      "recall": 0.5652173913043478,
+      "f1": 0.6382070437566703,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 43.2
+    },
+    "ADI": {
+      "status": "success",
+      "accuracy": 0.6723356009070295,
+      "calibrated_accuracy": 0.7278911564625851,
+      "precision": 0.6867256637168142,
+      "recall": 0.776,
+      "f1": 0.7286384976525822,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.0
+    },
+    "MCHP": {
+      "status": "success",
+      "accuracy": 0.7292250233426704,
+      "calibrated_accuracy": 0.7310924369747899,
+      "precision": 0.6998827667057445,
+      "recall": 0.9461172741679873,
+      "f1": 0.8045822102425876,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 43.4
+    },
+    "PYPL": {
+      "status": "success",
+      "accuracy": 0.7448979591836735,
+      "calibrated_accuracy": 0.7573696145124716,
+      "precision": 0.7674897119341564,
+      "recall": 0.7690721649484537,
+      "f1": 0.768280123583934,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.8
+    },
+    "SQ": {
+      "status": "failed",
+      "error": "No intraday data available for SQ",
+      "elapsed": 27.4
+    },
+    "V": {
+      "status": "success",
+      "accuracy": 0.6767676767676768,
+      "calibrated_accuracy": 0.7171717171717171,
+      "precision": 0.6857923497267759,
+      "recall": 0.6972222222222222,
+      "f1": 0.6914600550964187,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 38.2
+    },
+    "MA": {
+      "status": "success",
+      "accuracy": 0.7197278911564626,
+      "calibrated_accuracy": 0.7442176870748299,
+      "precision": 0.6547884187082406,
+      "recall": 0.8521739130434782,
+      "f1": 0.7405541561712846,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 40.7
+    },
+    "JPM": {
+      "status": "success",
+      "accuracy": 0.6854256854256854,
+      "calibrated_accuracy": 0.7056277056277056,
+      "precision": 0.6730769230769231,
+      "recall": 0.6441717791411042,
+      "f1": 0.658307210031348,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 40.4
+    },
+    "BAC": {
+      "status": "success",
+      "accuracy": 0.7360544217687075,
+      "calibrated_accuracy": 0.7564625850340136,
+      "precision": 0.6446280991735537,
+      "recall": 0.782608695652174,
+      "f1": 0.7069486404833837,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 39.1
+    },
+    "WFC": {
+      "status": "success",
+      "accuracy": 0.6499356499356499,
+      "calibrated_accuracy": 0.7619047619047619,
+      "precision": 0.5423728813559322,
+      "recall": 0.7296416938110749,
+      "f1": 0.6222222222222222,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 40.3
+    },
+    "GS": {
+      "status": "success",
+      "accuracy": 0.6329849012775842,
+      "calibrated_accuracy": 0.6515679442508711,
+      "precision": 0.6235119047619048,
+      "recall": 0.8692946058091287,
+      "f1": 0.7261698440207972,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 39.0
+    },
+    "MS": {
+      "status": "success",
+      "accuracy": 0.7289377289377289,
+      "calibrated_accuracy": 0.7301587301587301,
+      "precision": 0.7003610108303249,
+      "recall": 0.8738738738738738,
+      "f1": 0.7775551102204409,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 39.2
+    },
+    "DIS": {
+      "status": "success",
+      "accuracy": 0.6522366522366523,
+      "calibrated_accuracy": 0.670995670995671,
+      "precision": 0.6,
+      "recall": 0.7335423197492164,
+      "f1": 0.6600846262341326,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 37.5
+    },
+    "NKE": {
+      "status": "success",
+      "accuracy": 0.7224157955865272,
+      "calibrated_accuracy": 0.7247386759581882,
+      "precision": 0.7375,
+      "recall": 0.6035805626598465,
+      "f1": 0.6638537271448663,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.0
+    },
+    "SBUX": {
+      "status": "success",
+      "accuracy": 0.6988095238095238,
+      "calibrated_accuracy": 0.7440476190476191,
+      "precision": 0.779467680608365,
+      "recall": 0.5125,
+      "f1": 0.6184012066365008,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.9
+    },
+    "MCD": {
+      "status": "success",
+      "accuracy": 0.7210884353741497,
+      "calibrated_accuracy": 0.7295918367346939,
+      "precision": 0.8113207547169812,
+      "recall": 0.2182741116751269,
+      "f1": 0.344,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 36.9
+    },
+    "KO": {
+      "status": "success",
+      "accuracy": 0.6336996336996337,
+      "calibrated_accuracy": 0.6978021978021978,
+      "precision": 0.726027397260274,
+      "recall": 0.5317725752508361,
+      "f1": 0.6138996138996139,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 36.3
+    },
+    "PEP": {
+      "status": "success",
+      "accuracy": 0.7717086834733894,
+      "calibrated_accuracy": 0.7759103641456583,
+      "precision": 0.8108108108108109,
+      "recall": 0.5980066445182725,
+      "f1": 0.6883365200764818,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 40.4
+    },
+    "WMT": {
+      "status": "success",
+      "accuracy": 0.7215007215007215,
+      "calibrated_accuracy": 0.7258297258297258,
+      "precision": 0.6993464052287581,
+      "recall": 0.8537234042553191,
+      "f1": 0.7688622754491018,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 38.1
+    },
+    "TGT": {
+      "status": "success",
+      "accuracy": 0.7224157955865272,
+      "calibrated_accuracy": 0.7305458768873403,
+      "precision": 0.6717687074829932,
+      "recall": 0.8956916099773242,
+      "f1": 0.7677356656948494,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.6
+    },
+    "HD": {
+      "status": "success",
+      "accuracy": 0.7773487773487774,
+      "calibrated_accuracy": 0.7915057915057915,
+      "precision": 0.8165680473372781,
+      "recall": 0.4928571428571429,
+      "f1": 0.6146993318485523,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 40.7
+    },
+    "LOW": {
+      "status": "success",
+      "accuracy": 0.7205513784461153,
+      "calibrated_accuracy": 0.7293233082706767,
+      "precision": 0.819672131147541,
+      "recall": 0.33222591362126247,
+      "f1": 0.4728132387706856,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 38.6
+    },
+    "COST": {
+      "status": "success",
+      "accuracy": 0.7261904761904762,
+      "calibrated_accuracy": 0.7363945578231292,
+      "precision": 0.7142857142857143,
+      "recall": 0.8038585209003215,
+      "f1": 0.75642965204236,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 38.2
+    },
+    "PG": {
+      "status": "success",
+      "accuracy": 0.65625,
+      "calibrated_accuracy": 0.6994047619047619,
+      "precision": 0.7365269461077845,
+      "recall": 0.3967741935483871,
+      "f1": 0.5157232704402516,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 38.3
+    },
+    "TMO": {
+      "status": "success",
+      "accuracy": 0.7210884353741497,
+      "calibrated_accuracy": 0.7551020408163265,
+      "precision": 0.65,
+      "recall": 0.8407960199004975,
+      "f1": 0.7331887201735358,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 42.2
+    },
+    "ABBV": {
+      "status": "success",
+      "accuracy": 0.7416666666666667,
+      "calibrated_accuracy": 0.7488095238095238,
+      "precision": 0.8137651821862348,
+      "recall": 0.5403225806451613,
+      "f1": 0.6494345718901454,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 41.7
+    },
+    "JNJ": {
+      "status": "success",
+      "accuracy": 0.6605222734254992,
+      "calibrated_accuracy": 0.6682027649769585,
+      "precision": 0.7563025210084033,
+      "recall": 0.3191489361702128,
+      "f1": 0.4488778054862843,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 37.8
+    },
+    "PFE": {
+      "status": "success",
+      "accuracy": 0.6918767507002801,
+      "calibrated_accuracy": 0.7759103641456583,
+      "precision": 0.6027713625866051,
+      "recall": 0.8446601941747572,
+      "f1": 0.7035040431266847,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 40.8
+    },
+    "MRK": {
+      "status": "success",
+      "accuracy": 0.553968253968254,
+      "calibrated_accuracy": 0.6825396825396826,
+      "precision": 0.5129310344827587,
+      "recall": 0.8122866894197952,
+      "f1": 0.6287978863936592,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 245.2
+    },
+    "UNH": {
+      "status": "success",
+      "accuracy": 0.7057387057387058,
+      "calibrated_accuracy": 0.7094017094017094,
+      "precision": 0.6957163958641064,
+      "recall": 0.9308300395256917,
+      "f1": 0.7962806424344886,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.3
+    },
+    "CVS": {
+      "status": "success",
+      "accuracy": 0.6152882205513784,
+      "calibrated_accuracy": 0.6929824561403509,
+      "precision": 0.6912621359223301,
+      "recall": 0.7063492063492064,
+      "f1": 0.6987242394504416,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 34.7
+    },
+    "CI": {
+      "status": "success",
+      "accuracy": 0.7321428571428571,
+      "calibrated_accuracy": 0.7547619047619047,
+      "precision": 0.6784386617100372,
+      "recall": 0.8752997601918465,
+      "f1": 0.7643979057591623,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.9
+    },
+    "HUM": {
+      "status": "success",
+      "accuracy": 0.7485714285714286,
+      "calibrated_accuracy": 0.7514285714285714,
+      "precision": 0.7300884955752213,
+      "recall": 0.9705882352941176,
+      "f1": 0.8333333333333334,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 37.2
+    },
+    "ELV": {
+      "status": "success",
+      "accuracy": 0.7386489479512736,
+      "calibrated_accuracy": 0.7452934662236987,
+      "precision": 0.7230113636363636,
+      "recall": 0.9254545454545454,
+      "f1": 0.8118022328548644,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 38.2
+    },
+    "DHR": {
+      "status": "success",
+      "accuracy": 0.75,
+      "calibrated_accuracy": 0.7738095238095238,
+      "precision": 0.7203389830508474,
+      "recall": 0.5414012738853503,
+      "f1": 0.6181818181818182,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 36.4
+    },
+    "GE": {
+      "status": "success",
+      "accuracy": 0.7331118493909191,
+      "calibrated_accuracy": 0.7530454042081949,
+      "precision": 0.8104089219330854,
+      "recall": 0.5343137254901961,
+      "f1": 0.6440177252584933,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 38.0
+    },
+    "BA": {
+      "status": "success",
+      "accuracy": 0.6136363636363636,
+      "calibrated_accuracy": 0.6569264069264069,
+      "precision": 0.6440677966101694,
+      "recall": 0.6166328600405679,
+      "f1": 0.6300518134715026,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.3
+    },
+    "CAT": {
+      "status": "success",
+      "accuracy": 0.6147186147186147,
+      "calibrated_accuracy": 0.6753246753246753,
+      "precision": 0.6379310344827587,
+      "recall": 0.666,
+      "f1": 0.6516634050880626,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.5
+    },
+    "DE": {
+      "status": "success",
+      "accuracy": 0.6591478696741855,
+      "calibrated_accuracy": 0.6992481203007519,
+      "precision": 0.6219931271477663,
+      "recall": 0.5276967930029155,
+      "f1": 0.5709779179810726,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.5
+    },
+    "MMM": {
+      "status": "success",
+      "accuracy": 0.7208994708994709,
+      "calibrated_accuracy": 0.7314814814814815,
+      "precision": 0.7735849056603774,
+      "recall": 0.412751677852349,
+      "f1": 0.5382932166301969,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.9
+    },
+    "HON": {
+      "status": "success",
+      "accuracy": 0.7301587301587301,
+      "calibrated_accuracy": 0.7433862433862434,
+      "precision": 0.7833333333333333,
+      "recall": 0.46078431372549017,
+      "f1": 0.5802469135802469,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.9
+    },
+    "RTX": {
+      "status": "success",
+      "accuracy": 0.6910866910866911,
+      "calibrated_accuracy": 0.6984126984126984,
+      "precision": 0.7619047619047619,
+      "recall": 0.375366568914956,
+      "f1": 0.5029469548133595,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 34.3
+    },
+    "LMT": {
+      "status": "success",
+      "accuracy": 0.6898326898326899,
+      "calibrated_accuracy": 0.7078507078507078,
+      "precision": 0.7947019867549668,
+      "recall": 0.36363636363636365,
+      "f1": 0.498960498960499,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.9
+    },
+    "NOC": {
+      "status": "success",
+      "accuracy": 0.7593307593307593,
+      "calibrated_accuracy": 0.767052767052767,
+      "precision": 0.7919463087248322,
+      "recall": 0.4306569343065693,
+      "f1": 0.557919621749409,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 36.1
+    },
+    "GD": {
+      "status": "success",
+      "accuracy": 0.665266106442577,
+      "calibrated_accuracy": 0.6848739495798319,
+      "precision": 0.9230769230769231,
+      "recall": 0.20408163265306123,
+      "f1": 0.3342618384401114,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 34.6
+    },
+    "LHX": {
+      "status": "success",
+      "accuracy": 0.6821428571428572,
+      "calibrated_accuracy": 0.6880952380952381,
+      "precision": 0.7938931297709924,
+      "recall": 0.3023255813953488,
+      "f1": 0.4378947368421053,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.7
+    },
+    "XOM": {
+      "status": "success",
+      "accuracy": 0.6535714285714286,
+      "calibrated_accuracy": 0.6666666666666666,
+      "precision": 0.6474719101123596,
+      "recall": 0.9201596806387226,
+      "f1": 0.7600989282769992,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.8
+    },
+    "CVX": {
+      "status": "success",
+      "accuracy": 0.7374149659863946,
+      "calibrated_accuracy": 0.746938775510204,
+      "precision": 0.7054673721340388,
+      "recall": 0.9389671361502347,
+      "f1": 0.8056394763343404,
+      "n_features": 81,
+      "ensemble": true,
+      "elapsed": 35.6
+    },
+    "INFY.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for INFY.BSE",
+      "elapsed": 26.1
+    },
+    "TCS.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for TCS.BSE",
+      "elapsed": 26.1
+    },
+    "WIPRO.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for WIPRO.BSE",
+      "elapsed": 27.2
+    },
+    "HCLTECH.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for HCLTECH.BSE",
+      "elapsed": 26.1
+    },
+    "TECHM.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for TECHM.BSE",
+      "elapsed": 26.1
+    },
+    "HDFCBANK.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for HDFCBANK.BSE",
+      "elapsed": 26.2
+    },
+    "ICICIBANK.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for ICICIBANK.BSE",
+      "elapsed": 26.0
+    },
+    "SBIN.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for SBIN.BSE",
+      "elapsed": 26.2
+    },
+    "KOTAKBANK.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for KOTAKBANK.BSE",
+      "elapsed": 26.1
+    },
+    "AXISBANK.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for AXISBANK.BSE",
+      "elapsed": 26.2
+    },
+    "BAJFINANCE.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for BAJFINANCE.BSE",
+      "elapsed": 26.1
+    },
+    "BAJAJFINSV.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for BAJAJFINSV.BSE",
+      "elapsed": 26.1
+    },
+    "INDUSINDBK.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for INDUSINDBK.BSE",
+      "elapsed": 26.0
+    },
+    "HINDUNILVR.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for HINDUNILVR.BSE",
+      "elapsed": 26.2
+    },
+    "ITC.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for ITC.BSE",
+      "elapsed": 26.1
+    },
+    "NESTLEIND.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for NESTLEIND.BSE",
+      "elapsed": 26.1
+    },
+    "BRITANNIA.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for BRITANNIA.BSE",
+      "elapsed": 26.2
+    },
+    "TATACONSUM.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for TATACONSUM.BSE",
+      "elapsed": 26.2
+    },
+    "ASIANPAINT.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for ASIANPAINT.BSE",
+      "elapsed": 26.2
+    },
+    "TITAN.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for TITAN.BSE",
+      "elapsed": 26.1
+    },
+    "RELIANCE.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for RELIANCE.BSE",
+      "elapsed": 26.2
+    },
+    "LT.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for LT.BSE",
+      "elapsed": 26.1
+    },
+    "MARUTI.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for MARUTI.BSE",
+      "elapsed": 26.1
+    },
+    "TATAMOTORS.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for TATAMOTORS.BSE",
+      "elapsed": 26.1
+    },
+    "EICHERMOT.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for EICHERMOT.BSE",
+      "elapsed": 26.0
+    },
+    "ULTRACEMCO.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for ULTRACEMCO.BSE",
+      "elapsed": 26.2
+    },
+    "GRASIM.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for GRASIM.BSE",
+      "elapsed": 26.0
+    },
+    "SUNPHARMA.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for SUNPHARMA.BSE",
+      "elapsed": 26.0
+    },
+    "DRREDDY.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for DRREDDY.BSE",
+      "elapsed": 26.2
+    },
+    "CIPLA.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for CIPLA.BSE",
+      "elapsed": 26.1
+    },
+    "DIVISLAB.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for DIVISLAB.BSE",
+      "elapsed": 26.1
+    },
+    "APOLLOHOSP.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for APOLLOHOSP.BSE",
+      "elapsed": 26.3
+    },
+    "ONGC.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for ONGC.BSE",
+      "elapsed": 26.2
+    },
+    "NTPC.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for NTPC.BSE",
+      "elapsed": 26.2
+    },
+    "POWERGRID.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for POWERGRID.BSE",
+      "elapsed": 26.1
+    },
+    "BPCL.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for BPCL.BSE",
+      "elapsed": 26.1
+    },
+    "COALINDIA.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for COALINDIA.BSE",
+      "elapsed": 26.2
+    },
+    "TATASTEEL.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for TATASTEEL.BSE",
+      "elapsed": 26.2
+    },
+    "HINDALCO.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for HINDALCO.BSE",
+      "elapsed": 26.2
+    },
+    "JSWSTEEL.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for JSWSTEEL.BSE",
+      "elapsed": 26.2
+    },
+    "BHARTIARTL.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for BHARTIARTL.BSE",
+      "elapsed": 26.1
+    },
+    "ADANIENT.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for ADANIENT.BSE",
+      "elapsed": 26.2
+    },
+    "ADANIPORTS.BSE": {
+      "status": "failed",
+      "error": "No intraday data available for ADANIPORTS.BSE",
+      "elapsed": 26.1
     }
   },
-  "avg_accuracy": 0.6784677601675353,
-  "avg_calibrated_accuracy": 0.7064823243140335,
-  "avg_f1": 0.7718241074392688,
-  "median_accuracy": 0.6962301587301587
+  "avg_accuracy": 0.6873789558774972,
+  "avg_calibrated_accuracy": 0.719883148056874,
+  "avg_f1": 0.6646472654478597,
+  "median_accuracy": 0.7012566137566137
 }

@@ -15,6 +15,7 @@ Usage:
     python train_daytrading.py --symbols AAPL,TSLA,SPY    # Specific symbols
     python train_daytrading.py --months 6                  # Use 6 months of data
     python train_daytrading.py --tune                      # Optuna hyperparameter tuning
+    python train_daytrading.py --discover                  # Auto-discover new symbols via API
 """
 
 import os
@@ -49,6 +50,8 @@ def parse_args():
                         help="Comma-separated symbols to train")
     parser.add_argument("--quick", action="store_true",
                         help="Train only 5 symbols for quick testing")
+    parser.add_argument("--discover", action="store_true",
+                        help="Auto-discover new symbols from Alpha Vantage LISTING_STATUS")
     parser.add_argument("--months", type=int,
                         default=DAY_TRADING_CONFIG["months_history"],
                         help="Months of intraday history to fetch")
@@ -65,6 +68,39 @@ def parse_args():
     parser.add_argument("--tune-timeout", type=int, default=300,
                         help="Optuna timeout in seconds")
     return parser.parse_args()
+
+
+def discover_new_symbols(av_collector, models_dir):
+    """Find symbols that have active listings but no trained model yet."""
+    # Get existing trained models
+    existing = set()
+    if os.path.exists(models_dir):
+        for f in os.listdir(models_dir):
+            if f.endswith("_xgboost.joblib"):
+                sym = f.replace("_xgboost.joblib", "").replace("_", "=").replace("_", "^")
+                existing.add(sym.upper())
+
+    # Also include symbols from the default training lists
+    from train_models import ALL_SYMBOLS
+    all_known = set(s.upper() for s in ALL_SYMBOLS) | existing
+
+    discovered = av_collector.discover_new_symbols(
+        existing_symbols=list(all_known),
+        us_exchanges=("NYSE", "NASDAQ"),
+        asset_types=("Stock",),
+        min_days_listed=30,
+    )
+
+    new_us = discovered.get("us_new", [])
+    new_india = discovered.get("india_new", [])
+
+    logger.info(f"Auto-discovery: {len(new_us)} new US symbols, {len(new_india)} new India symbols")
+    if new_us:
+        logger.info(f"  New US (first 20): {new_us[:20]}")
+    if new_india:
+        logger.info(f"  New India: {new_india}")
+
+    return new_us + new_india
 
 
 def train_daytrading_symbols(
@@ -262,15 +298,30 @@ def main():
 
     os.makedirs(MODELS_DIR, exist_ok=True)
 
+    av_collector = AlphaVantageCollector()
+
     # Select symbols
     if args.symbols:
         symbols = [s.strip().upper() for s in args.symbols.split(",")]
     elif args.quick:
         symbols = DAY_TRADING_QUICK_SYMBOLS
+    elif args.discover:
+        # Auto-discover new symbols not yet trained
+        new_syms = discover_new_symbols(av_collector, MODELS_DIR)
+        # Also retrain existing day-trading symbols
+        symbols = list(DAY_TRADING_SYMBOLS) + new_syms
+        # Deduplicate while preserving order
+        seen = set()
+        deduped = []
+        for s in symbols:
+            if s.upper() not in seen:
+                seen.add(s.upper())
+                deduped.append(s)
+        symbols = deduped
+        logger.info(f"Discovery mode: {len(symbols)} total symbols "
+                    f"({len(DAY_TRADING_SYMBOLS)} existing + {len(new_syms)} discovered)")
     else:
         symbols = DAY_TRADING_SYMBOLS
-
-    av_collector = AlphaVantageCollector()
     logger.info(f"Alpha Vantage API key: "
                 f"{'*' * max(0, len(av_collector.api_key) - 4)}"
                 f"{av_collector.api_key[-4:] if av_collector.api_key else 'NOT SET'}")

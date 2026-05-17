@@ -159,9 +159,34 @@ def parse_args():
     parser.add_argument('--benchmark', action='store_true', help='Run benchmark comparison report')
     parser.add_argument('--symbols', type=str, default=None, help='Comma-separated symbols to train')
     parser.add_argument('--quick', action='store_true', help='Train only 10 symbols for quick testing')
+    parser.add_argument('--discover', action='store_true',
+                        help='Auto-discover new symbols from Alpha Vantage LISTING_STATUS and add to training')
     parser.add_argument('--tune-trials', type=int, default=30, help='Number of Optuna trials per model (default: 30)')
     parser.add_argument('--tune-timeout', type=int, default=300, help='Optuna timeout in seconds (default: 300)')
     return parser.parse_args()
+
+
+def discover_new_symbols(av_collector):
+    """Use Alpha Vantage LISTING_STATUS to find new US/India symbols not in ALL_SYMBOLS."""
+    all_known = set(s.upper() for s in ALL_SYMBOLS)
+
+    discovered = av_collector.discover_new_symbols(
+        existing_symbols=list(all_known),
+        us_exchanges=("NYSE", "NASDAQ"),
+        asset_types=("Stock",),
+        min_days_listed=30,
+    )
+
+    new_us = discovered.get("us_new", [])
+    new_india = discovered.get("india_new", [])
+
+    logger.info(f"Auto-discovery: {len(new_us)} new US symbols, {len(new_india)} new India symbols")
+    if new_us:
+        logger.info(f"  New US (first 30): {new_us[:30]}")
+    if new_india:
+        logger.info(f"  New India: {new_india}")
+
+    return new_us + new_india
 
 
 def train_symbols(symbols, pipeline, predictor, tune=False, tune_trials=30, tune_timeout=300):
@@ -413,15 +438,28 @@ def main():
         shutil.copy2(report_path, prev_path)
         logger.info("Previous training report backed up for benchmarking")
 
+    av_collector = AlphaVantageCollector()
+
     # Select symbols
     if args.symbols:
         symbols = [s.strip() for s in args.symbols.split(',')]
     elif args.quick:
         symbols = QUICK_SYMBOLS
+    elif args.discover:
+        new_syms = discover_new_symbols(av_collector)
+        symbols = list(ALL_SYMBOLS) + new_syms
+        # Deduplicate
+        seen = set()
+        deduped = []
+        for s in symbols:
+            if s.upper() not in seen:
+                seen.add(s.upper())
+                deduped.append(s)
+        symbols = deduped
+        logger.info(f"Discovery mode: {len(symbols)} total symbols "
+                    f"({len(ALL_SYMBOLS)} existing + {len(new_syms)} discovered)")
     else:
         symbols = ALL_SYMBOLS
-
-    av_collector = AlphaVantageCollector()
     logger.info(f"Alpha Vantage API key: {'*' * max(0, len(av_collector.api_key) - 4)}{av_collector.api_key[-4:] if av_collector.api_key else 'NOT SET'}")
     logger.info(f"Total symbols to train: {len(symbols)}")
     logger.info(f"Optuna tuning: {'ENABLED' if args.tune else 'DISABLED'}")

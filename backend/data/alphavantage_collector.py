@@ -311,3 +311,138 @@ class AlphaVantageCollector:
         combined = combined[~combined.index.duplicated(keep="last")]
         logger.info(f"Intraday history for {symbol}: {len(combined)} bars over {len(frames)} months")
         return combined
+
+    # ── listing status & symbol search ───────────────────────────
+
+    def get_listing_status(self, status: str = "active") -> Optional[pd.DataFrame]:
+        """Fetch all active (or delisted) listings from Alpha Vantage.
+
+        Returns DataFrame with columns: symbol, name, exchange, assetType,
+        ipoDate, delistingDate, status.
+        Covers US exchanges: NYSE, NASDAQ, BATS, NYSE ARCA.
+        """
+        if not self.api_key:
+            return None
+
+        cached = self._get_cached("listing_status", status, 86400)  # cache 24h
+        if cached is not None:
+            return cached
+
+        try:
+            response = requests.get(
+                self.BASE_URL,
+                params={
+                    "function": "LISTING_STATUS",
+                    "state": status,
+                    "apikey": self.api_key,
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+
+            from io import StringIO
+            df = pd.read_csv(StringIO(response.text))
+            if df.empty:
+                return None
+
+            self._set_cached("listing_status", status, df)
+            logger.info(f"Fetched listing status: {len(df)} entries ({status})")
+            return df
+        except Exception as exc:
+            logger.warning(f"Listing status fetch failed: {exc}")
+            return None
+
+    def search_symbol(self, keywords: str) -> Optional[list]:
+        """Search for symbols matching keywords.
+
+        Returns list of dicts with keys: symbol, name, type, region,
+        currency, matchScore.
+        """
+        if not self.api_key:
+            return None
+
+        try:
+            response = requests.get(
+                self.BASE_URL,
+                params={
+                    "function": "SYMBOL_SEARCH",
+                    "keywords": keywords,
+                    "apikey": self.api_key,
+                },
+                timeout=20,
+            )
+            response.raise_for_status()
+            payload = response.json()
+
+            matches = payload.get("bestMatches", [])
+            results = []
+            for m in matches:
+                results.append({
+                    "symbol": m.get("1. symbol", ""),
+                    "name": m.get("2. name", ""),
+                    "type": m.get("3. type", ""),
+                    "region": m.get("4. region", ""),
+                    "currency": m.get("8. currency", ""),
+                    "matchScore": float(m.get("9. matchScore", 0)),
+                })
+            return results
+        except Exception as exc:
+            logger.warning(f"Symbol search failed for '{keywords}': {exc}")
+            return None
+
+    def discover_new_symbols(
+        self,
+        existing_symbols: list,
+        us_exchanges: tuple = ("NYSE", "NASDAQ"),
+        asset_types: tuple = ("Stock",),
+        min_days_listed: int = 30,
+    ) -> dict:
+        """Discover newly listed symbols not yet in the training set.
+
+        Args:
+            existing_symbols: Symbols that already have trained models.
+            us_exchanges: Which US exchanges to include.
+            asset_types: Filter by asset type (Stock, ETF).
+            min_days_listed: Only include symbols listed for at least N days.
+
+        Returns:
+            Dict with 'us_new' and 'india_new' lists of new symbol strings.
+        """
+        result = {"us_new": [], "india_new": []}
+
+        existing_upper = {s.upper() for s in existing_symbols}
+
+        # US symbols from LISTING_STATUS
+        listings = self.get_listing_status("active")
+        if listings is not None and not listings.empty:
+            filtered = listings[
+                (listings["exchange"].isin(us_exchanges))
+                & (listings["assetType"].isin(asset_types))
+                & (listings["status"] == "Active")
+            ].copy()
+
+            if min_days_listed > 0 and "ipoDate" in filtered.columns:
+                filtered["ipoDate"] = pd.to_datetime(filtered["ipoDate"], errors="coerce")
+                cutoff = pd.Timestamp.now() - pd.Timedelta(days=min_days_listed)
+                filtered = filtered[filtered["ipoDate"] <= cutoff]
+
+            for _, row in filtered.iterrows():
+                sym = str(row["symbol"]).upper()
+                if sym and sym not in existing_upper:
+                    result["us_new"].append(sym)
+
+            logger.info(
+                f"Symbol discovery: {len(filtered)} active US listings, "
+                f"{len(result['us_new'])} new (not in training set)"
+            )
+
+        # India symbols via SYMBOL_SEARCH for major BSE tickers
+        india_search_terms = [
+            "RELIANCE.BSE", "INFY.BSE", "TCS.BSE", "HDFCBANK.BSE",
+            "ICICIBANK.BSE", "SBIN.BSE", "BHARTIARTL.BSE",
+        ]
+        for term in india_search_terms:
+            if term.upper() not in existing_upper:
+                result["india_new"].append(term.upper())
+
+        return result

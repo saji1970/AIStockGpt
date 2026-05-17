@@ -92,15 +92,15 @@ def discover_new_symbols(av_collector, models_dir):
     )
 
     new_us = discovered.get("us_new", [])
-    new_india = discovered.get("india_new", [])
 
-    logger.info(f"Auto-discovery: {len(new_us)} new US symbols, {len(new_india)} new India symbols")
+    # NOTE: India BSE symbols excluded from day trading -- Alpha Vantage
+    # only provides intraday data for US equities.  India symbols use
+    # daily models via train_models.py instead.
+    logger.info(f"Auto-discovery: {len(new_us)} new US symbols for day trading")
     if new_us:
         logger.info(f"  New US (first 20): {new_us[:20]}")
-    if new_india:
-        logger.info(f"  New India: {new_india}")
 
-    return new_us + new_india
+    return new_us
 
 
 def train_daytrading_symbols(
@@ -322,6 +322,14 @@ def main():
                     f"({len(DAY_TRADING_SYMBOLS)} existing + {len(new_syms)} discovered)")
     else:
         symbols = DAY_TRADING_SYMBOLS
+    # Filter out India BSE symbols -- intraday data is US-only on Alpha Vantage.
+    # India equities use daily models via train_models.py (TIME_SERIES_DAILY).
+    bse_skipped = [s for s in symbols if s.upper().endswith(".BSE")]
+    symbols = [s for s in symbols if not s.upper().endswith(".BSE")]
+    if bse_skipped:
+        logger.info(f"Skipping {len(bse_skipped)} India BSE symbols "
+                    f"(intraday not supported, use train_models.py for daily models)")
+
     logger.info(f"Alpha Vantage API key: "
                 f"{'*' * max(0, len(av_collector.api_key) - 4)}"
                 f"{av_collector.api_key[-4:] if av_collector.api_key else 'NOT SET'}")

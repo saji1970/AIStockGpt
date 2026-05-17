@@ -289,7 +289,8 @@ DAY_TRADING_CONFIG = {
     'rate_limit_delay': 12.5,       # Seconds between Alpha Vantage API calls
 }
 
-# Liquid symbols suitable for day trading
+# Liquid symbols suitable for day trading (US only -- Alpha Vantage intraday
+# is limited to US equities; India BSE symbols use daily models via train_models.py)
 DAY_TRADING_SYMBOLS = [
     # High-liquidity US tech
     'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'AMD',

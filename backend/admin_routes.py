@@ -17,7 +17,8 @@ from .database import db_manager
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+# /api/admin avoids collision with React route /admin when UI is served from the same host
+router = APIRouter(prefix="/api/admin", tags=["admin"])
 auth_manager = AuthManager()
 
 TRAIN_PIPE_URL = os.getenv("TRAIN_PIPE_URL", "http://127.0.0.1:8090").rstrip("/")

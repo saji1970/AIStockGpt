@@ -2,19 +2,17 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Shield,
   Users,
-  Cpu,
   RefreshCw,
   Plus,
   Trash2,
   Ban,
   CheckCircle,
   Key,
-  Play,
-  GitCommit,
-  Upload,
   Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isLocalTrainingOnlyAdmin, isFullAdminConsole } from '../config';
+import AdminTrainingPanel from '../components/AdminTrainingPanel';
 import {
   getAdminDashboard,
   listAdminUsers,
@@ -23,17 +21,11 @@ import {
   blockAdminUser,
   unblockAdminUser,
   deleteAdminUser,
-  getTrainingStatus,
-  startTraining,
-  commitModels,
-  pushModels,
-  trainCommitPush,
 } from '../services/adminApi';
 
-const TABS = [
+const FULL_TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: Shield },
   { id: 'users', label: 'Users', icon: Users },
-  { id: 'training', label: 'Training', icon: Cpu },
 ];
 
 function AdminPage() {
@@ -42,9 +34,6 @@ function AdminPage() {
   const [usersData, setUsersData] = useState({ users: [], total: 0 });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [trainingStatus, setTrainingStatus] = useState(null);
-  const [trainMode, setTrainMode] = useState('quick');
-  const [commitMsg, setCommitMsg] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [newUser, setNewUser] = useState({
     email: '',
@@ -65,37 +54,22 @@ function AdminPage() {
     setUsersData(data);
   }, [search]);
 
-  const loadTraining = useCallback(async () => {
-    try {
-      const data = await getTrainingStatus();
-      setTrainingStatus(data);
-    } catch (e) {
-      setTrainingStatus({ status: 'unavailable', error: e.message });
-    }
-  }, []);
-
   const refresh = useCallback(async () => {
+    if (isLocalTrainingOnlyAdmin) return;
     setLoading(true);
     try {
       if (tab === 'dashboard') await loadDashboard();
       if (tab === 'users') await loadUsers();
-      if (tab === 'training') await loadTraining();
     } catch (e) {
       toast.error(e.response?.data?.detail || e.message || 'Request failed');
     } finally {
       setLoading(false);
     }
-  }, [tab, loadDashboard, loadUsers, loadTraining]);
+  }, [tab, loadDashboard, loadUsers]);
 
   useEffect(() => {
-    refresh();
+    if (!isLocalTrainingOnlyAdmin) refresh();
   }, [refresh]);
-
-  useEffect(() => {
-    if (tab !== 'training') return undefined;
-    const id = setInterval(loadTraining, 5000);
-    return () => clearInterval(id);
-  }, [tab, loadTraining]);
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
@@ -142,20 +116,22 @@ function AdminPage() {
     }
   };
 
-  const runTraining = async (action) => {
-    try {
-      let result;
-      if (action === 'train') result = await startTraining({ mode: trainMode });
-      else if (action === 'commit') result = await commitModels(commitMsg || undefined);
-      else if (action === 'push') result = await pushModels();
-      else result = await trainCommitPush({ mode: trainMode, message: commitMsg || undefined });
-      toast.success(result.message || 'Started');
-      loadTraining();
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Failed');
-    }
-  };
+  if (isLocalTrainingOnlyAdmin) {
+    return (
+      <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Shield className="w-7 h-7 text-indigo-600" />
+            Local training console
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Trigger model training on your machine only (not available on Railway).
+          </p>
+        </div>
+        <AdminTrainingPanel />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-auto p-6 max-w-7xl mx-auto w-full">
@@ -166,7 +142,9 @@ function AdminPage() {
             Admin Console
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Users, API keys, and local training pipeline
+            {isFullAdminConsole
+              ? 'Manage users and monitor the production API (Railway).'
+              : 'Administration'}
           </p>
         </div>
         <button
@@ -180,7 +158,7 @@ function AdminPage() {
       </div>
 
       <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 pb-2">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {FULL_TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
@@ -245,10 +223,6 @@ function AdminPage() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-4">
-              Training pipe: {dashboard.train_pipe_url}
-              {dashboard.train_pipe_configured ? ' (configured)' : ' — run: python train_pipe.py'}
-            </p>
           </div>
         </div>
       )}
@@ -375,79 +349,6 @@ function AdminPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {!loading && tab === 'training' && (
-        <div className="space-y-6 max-w-2xl">
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-            <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Pipeline status</h3>
-            <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-auto max-h-48 text-gray-800 dark:text-gray-200">
-              {JSON.stringify(trainingStatus, null, 2)}
-            </pre>
-          </div>
-
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200">
-            Run <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">python train_pipe.py</code> on
-            this machine first. Set <code className="px-1">TRAIN_PIPE_URL=http://127.0.0.1:8090</code> and optional{' '}
-            <code className="px-1">TRAIN_PIPE_SECRET</code> in backend <code className="px-1">.env</code>.
-          </div>
-
-          <div className="flex flex-wrap gap-3 items-end">
-            <label className="text-sm dark:text-gray-300">
-              Mode
-              <select
-                value={trainMode}
-                onChange={(e) => setTrainMode(e.target.value)}
-                className="block mt-1 px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-600"
-              >
-                <option value="quick">Quick (14 symbols)</option>
-                <option value="full">Full (all symbols)</option>
-              </select>
-            </label>
-            <input
-              type="text"
-              placeholder="Commit message (optional)"
-              value={commitMsg}
-              onChange={(e) => setCommitMsg(e.target.value)}
-              className="flex-1 min-w-[180px] px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => runTraining('train')}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
-            >
-              <Play className="w-4 h-4" />
-              Train
-            </button>
-            <button
-              type="button"
-              onClick={() => runTraining('commit')}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800"
-            >
-              <GitCommit className="w-4 h-4" />
-              Commit models
-            </button>
-            <button
-              type="button"
-              onClick={() => runTraining('push')}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800"
-            >
-              <Upload className="w-4 h-4" />
-              Push to GitHub
-            </button>
-            <button
-              type="button"
-              onClick={() => runTraining('all')}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
-            >
-              <Cpu className="w-4 h-4" />
-              Train + commit + push
-            </button>
           </div>
         </div>
       )}

@@ -10,6 +10,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SettingsPage from './pages/SettingsPage';
 import AdminPage from './pages/AdminPage';
+import { isLocalTrainingOnlyAdmin } from './config';
 import './App.css';
 
 function ProtectedRoute({ children }) {
@@ -156,7 +157,7 @@ function App() {
                 }`}
               >
                 <Shield className="w-4 h-4" />
-                <span>Admin</span>
+                <span>{isLocalTrainingOnlyAdmin ? 'Training' : 'Admin'}</span>
               </Link>
             )}
 

@@ -151,12 +151,12 @@ if ENHANCED_MODULES_AVAILABLE:
     try:
         from backend.admin_routes import router as admin_router
         app.include_router(admin_router)
-        logger.info("Admin API routes mounted at /admin")
+        logger.info("Admin API routes mounted at /api/admin")
     except ImportError:
         try:
             from admin_routes import router as admin_router
             app.include_router(admin_router)
-            logger.info("Admin API routes mounted at /admin")
+            logger.info("Admin API routes mounted at /api/admin")
         except ImportError as e:
             logger.warning(f"Admin routes not available: {e}")
 
@@ -3234,6 +3234,26 @@ async def startup_event():
         logger.info("Data scheduler started")
     except Exception as e:
         logger.warning(f"Data scheduler failed to start: {e}")
+
+
+def _mount_web_ui_if_present() -> None:
+    """Serve React build from static/ui (Railway combined deploy). API routes register first."""
+    ui_dir = os.getenv(
+        "STATIC_UI_DIR",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "ui"),
+    )
+    if not os.path.isdir(ui_dir):
+        return
+    try:
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=ui_dir, html=True), name="web-ui")
+        logger.info("Web UI mounted from %s (admin: /admin, login: /login)", ui_dir)
+    except Exception as e:
+        logger.warning(f"Could not mount web UI: {e}")
+
+
+_mount_web_ui_if_present()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))

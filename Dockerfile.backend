@@ -1,23 +1,30 @@
-# Use Python 3.11 slim image
+# ── React admin + chat UI (production / Railway) ─────────────────
+FROM node:18-slim AS frontend-build
+WORKDIR /fe
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps 2>/dev/null || npm install
+COPY public ./public
+COPY src ./src
+COPY tailwind.config.js postcss.config.js ./
+ENV REACT_APP_ADMIN_MODE=full
+ENV REACT_APP_API_URL=
+ENV GENERATE_SOURCEMAP=false
+RUN npm run build
+
+# ── Python API ────────────────────────────────────────────────────
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies (including libpq for psycopg2)
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all necessary files
 COPY backend/ ./backend/
 COPY data_collector.py .
 COPY lstm_model.py .
@@ -26,19 +33,17 @@ COPY nlp_processor.py .
 COPY data_pipeline.py .
 COPY main.py .
 COPY config.py .
-
-# Copy pre-trained ML models
 COPY models/ ./models/
 
-# Create necessary directories
+COPY --from=frontend-build /fe/build ./static/ui
+
 RUN mkdir -p data
 
-# Set environment variables
 ENV PYTHONPATH=/app
 ENV OLLAMA_BASE_URL=http://localhost:11434
 ENV OLLAMA_MODEL=llama3.2
 ENV HF_API_TOKEN=
 ENV alphavantage_apikey=
+ENV STATIC_UI_DIR=/app/static/ui
 
-# Railway sets PORT dynamically
 CMD ["sh", "-c", "uvicorn backend.main_enhanced:app --host 0.0.0.0 --port ${PORT:-8080}"]

@@ -148,6 +148,18 @@ if ENHANCED_MODULES_AVAILABLE:
     except Exception as e:
         logger.warning(f"Security middleware initialization failed: {e}")
 
+    try:
+        from backend.admin_routes import router as admin_router
+        app.include_router(admin_router)
+        logger.info("Admin API routes mounted at /admin")
+    except ImportError:
+        try:
+            from admin_routes import router as admin_router
+            app.include_router(admin_router)
+            logger.info("Admin API routes mounted at /admin")
+        except ImportError as e:
+            logger.warning(f"Admin routes not available: {e}")
+
 # Global variables
 nlp_processor = None
 training_retriever = None
@@ -162,6 +174,9 @@ portfolio_optimizer = None
 sentiment_analyzer = None
 regime_detector = None
 av_collector = None
+fundamental_collector = None
+buffett_scorer = None
+jhunjhunwala_scorer = None
 
 # Pydantic models
 class ChatRequest(BaseModel):
@@ -1292,6 +1307,32 @@ def generate_response(message: str, user_id: Optional[str] = None,
             entities.pop("symbol", None)
             entities["screening_stock_ideas"] = True
             confidence = max(confidence, 0.85)
+        # Buffett investment analysis
+        elif re.search(
+            r"buffett|warren\s*buff|economic\s*moat|intrinsic\s*value|margin\s*of\s*safety"
+            r"|buffett\s*score|would\s*buffett\s*buy|buffett\s*style|durable\s*competitive\s*advantage",
+            message.lower(),
+        ):
+            intent = "buffett_analysis"
+            confidence = max(confidence, 0.90)
+        # Jhunjhunwala / GARP analysis
+        elif re.search(
+            r"jhunjhunwala|rakesh|multibagger|multi\s*bagger"
+            r"|garp\s*analysis|growth.*reasonable\s*price|jhunjhunwala\s*score"
+            r"|jhunjhunwala\s*pick|jhunjhunwala\s*style|10x\s*potential|hundred\s*bagger",
+            message.lower(),
+        ):
+            intent = "jhunjhunwala_analysis"
+            confidence = max(confidence, 0.90)
+        # Fundamental analysis (generic)
+        elif re.search(
+            r"fundamental\s*analysis|fundamentals?\s*(?:of|for)"
+            r"|balance\s*sheet\s*analysis|income\s*statement\s*review"
+            r"|earnings\s*quality|financial\s*health\s*(?:of|for)",
+            message.lower(),
+        ):
+            intent = "fundamental_analysis"
+            confidence = max(confidence, 0.90)
         # Currency investment questions (must check before price cap to avoid false positives)
         elif re.search(
             r"(?:best|top|safe|strong).*(?:currency|currencies).*(?:invest|buy|hold)"
@@ -1366,6 +1407,19 @@ def generate_response(message: str, user_id: Optional[str] = None,
                 ml_results['sentiment'] = sentiment_analyzer.analyze_symbol(symbol)
             except Exception as e:
                 logger.warning(f"Sentiment analysis failed for {symbol}: {e}")
+
+        # Buffett / Jhunjhunwala scores for fundamental-related intents
+        if symbol and intent in ("buffett_analysis", "jhunjhunwala_analysis", "fundamental_analysis"):
+            if buffett_scorer:
+                try:
+                    ml_results['buffett_score'] = buffett_scorer.score(symbol)
+                except Exception as e:
+                    logger.warning(f"Buffett scoring failed for {symbol}: {e}")
+            if jhunjhunwala_scorer:
+                try:
+                    ml_results['jhunjhunwala_score'] = jhunjhunwala_scorer.score(symbol)
+                except Exception as e:
+                    logger.warning(f"Jhunjhunwala scoring failed for {symbol}: {e}")
 
         # Portfolio optimizer + Monte Carlo for intents that benefit from allocation advice
         _allocation_intents = {
@@ -1527,6 +1581,27 @@ def generate_response(message: str, user_id: Optional[str] = None,
                     stock_data = fetch_stock_data('USDINR=X')
                 except Exception:
                     pass
+            if user_id and ENHANCED_MODULES_AVAILABLE:
+                try:
+                    db_manager.save_chat_message(user_id, message, response_text)
+                except Exception:
+                    pass
+            return {
+                "message": response_text,
+                "stockData": stock_data,
+                "charts": None,
+                "confidence": confidence,
+            }
+
+        # ---- Buffett / Jhunjhunwala / Fundamental short-circuits ---- #
+        if intent in ("buffett_analysis", "jhunjhunwala_analysis", "fundamental_analysis"):
+            if not symbol:
+                response_text = (
+                    "Please specify a stock symbol so I can run the analysis. "
+                    "For example: *\"Buffett analysis of AAPL\"* or *\"Jhunjhunwala score for RELIANCE.BSE\"*"
+                )
+            else:
+                response_text = _handle_investment_philosophy(intent, symbol, ml_results, stock_data)
             if user_id and ENHANCED_MODULES_AVAILABLE:
                 try:
                     db_manager.save_chat_message(user_id, message, response_text)
@@ -1940,6 +2015,100 @@ def _handle_currency_investment() -> str:
         "---\n\n"
         "*Currency markets are volatile. This is educational content, not financial advice.*"
     )
+
+
+def _handle_investment_philosophy(intent: str, symbol: str, ml_results: Dict, stock_data: Optional[Dict] = None) -> str:
+    """Handle Buffett, Jhunjhunwala, and fundamental analysis queries."""
+    lines = []
+
+    # Header with stock price if available
+    if stock_data:
+        price = stock_data.get("price", 0)
+        change = stock_data.get("change", 0)
+        change_pct = stock_data.get("changePercent", 0)
+        name = stock_data.get("name", symbol)
+        sign = "+" if change >= 0 else ""
+        lines.append(f"## {name} ({symbol}) - ${price:,.2f} ({sign}{change_pct:.2f}%)\n")
+    else:
+        lines.append(f"## {symbol} Investment Philosophy Analysis\n")
+
+    buffett = ml_results.get('buffett_score')
+    jhunjhunwala = ml_results.get('jhunjhunwala_score')
+
+    no_data = not buffett and not jhunjhunwala
+
+    if no_data:
+        lines.append(
+            "Fundamental data is not available for this asset. "
+            "Investment philosophy scoring requires equity fundamentals "
+            "(income statement, balance sheet, cash flow) which are available "
+            "for US and Indian equities.\n\n"
+            "Try a stock like **AAPL**, **MSFT**, **RELIANCE.BSE**, or **INFY.BSE**."
+        )
+        return "\n".join(lines)
+
+    # ---- Buffett Section ---- #
+    if buffett and intent in ("buffett_analysis", "fundamental_analysis"):
+        score = buffett.get('overall_score', 0)
+        grade = buffett.get('grade', 'N/A')
+        verdict = buffett.get('verdict', '')
+        lines.append(f"### Warren Buffett Analysis\n")
+        lines.append(f"**Overall Score: {score:.0f}/100 ({grade})** - {verdict}\n")
+        lines.append("| Criterion | Weight | Score | Details |")
+        lines.append("|-----------|--------|-------|---------|")
+        for criterion in buffett.get('criteria', []):
+            name = criterion.get('name', '')
+            weight = criterion.get('weight', 0)
+            cscore = criterion.get('score', 0)
+            detail = criterion.get('detail', '')
+            lines.append(f"| {name} | {weight:.0%} | {cscore:.0f}/100 | {detail} |")
+        narrative = buffett.get('narrative', '')
+        if narrative:
+            lines.append(f"\n{narrative}\n")
+
+    # ---- Jhunjhunwala Section ---- #
+    if jhunjhunwala and intent in ("jhunjhunwala_analysis", "fundamental_analysis"):
+        score = jhunjhunwala.get('overall_score', 0)
+        grade = jhunjhunwala.get('grade', 'N/A')
+        verdict = jhunjhunwala.get('verdict', '')
+        lines.append(f"### Rakesh Jhunjhunwala (GARP) Analysis\n")
+        lines.append(f"**Overall Score: {score:.0f}/100 ({grade})** - {verdict}\n")
+        lines.append("| Criterion | Weight | Score | Details |")
+        lines.append("|-----------|--------|-------|---------|")
+        for criterion in jhunjhunwala.get('criteria', []):
+            name = criterion.get('name', '')
+            weight = criterion.get('weight', 0)
+            cscore = criterion.get('score', 0)
+            detail = criterion.get('detail', '')
+            lines.append(f"| {name} | {weight:.0%} | {cscore:.0f}/100 | {detail} |")
+        narrative = jhunjhunwala.get('narrative', '')
+        if narrative:
+            lines.append(f"\n{narrative}\n")
+
+    # ---- ML prediction if available ---- #
+    pred = ml_results.get('prediction')
+    if pred:
+        direction = pred.get('direction', 'N/A')
+        prob = pred.get('probability', 0)
+        exp_ret = pred.get('expected_return', 0)
+        horizon = pred.get('horizon_days', 21)
+        lines.append(f"### ML Prediction ({horizon}-day horizon)\n")
+        lines.append(f"- Direction: **{direction}** (probability: {prob:.0%})")
+        lines.append(f"- Expected return: **{exp_ret:.1%}**\n")
+
+    # Next steps
+    lines.append("### Explore Further\n")
+    if intent != "buffett_analysis" and buffett:
+        lines.append(f"- *\"Buffett analysis of {symbol}\"* - Detailed value investing view")
+    if intent != "jhunjhunwala_analysis" and jhunjhunwala:
+        lines.append(f"- *\"Jhunjhunwala analysis of {symbol}\"* - GARP / multibagger view")
+    lines.append(f"- *\"Predict {symbol}\"* - ML-based price prediction")
+    lines.append(f"- *\"Technical analysis {symbol}\"* - Chart indicators\n")
+
+    lines.append("---\n\n*Investment philosophy scores are educational tools based on publicly available "
+                 "financial data. Not financial advice. Always do your own research.*")
+
+    return "\n".join(lines)
 
 
 def handle_market_advice(message: str, entities: Optional[Dict] = None) -> str:
@@ -2998,6 +3167,15 @@ async def startup_event():
             from db_session import engine
             from models import Base
         Base.metadata.create_all(bind=engine)
+        if ENHANCED_MODULES_AVAILABLE:
+            db_manager.ensure_admin_schema()
+            admin_emails = os.getenv("ADMIN_EMAILS", "")
+            if admin_emails.strip():
+                promoted = db_manager.promote_admin_by_emails(
+                    [e.strip() for e in admin_emails.split(",") if e.strip()]
+                )
+                if promoted:
+                    logger.info(f"Promoted {promoted} user(s) to admin via ADMIN_EMAILS")
         logger.info("Database tables initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database tables: {e}")
@@ -3020,7 +3198,19 @@ async def startup_event():
 
         _db = db_manager if ENHANCED_MODULES_AVAILABLE else None
         av_collector = AlphaVantageCollector()
-        feature_pipeline = FeaturePipeline(db_manager=_db, av_collector=av_collector)
+
+        # Initialize fundamental data collector and investment advisors
+        try:
+            from backend.data.fundamental_collector import FundamentalCollector
+            from backend.advisor.investment_advisor import BuffettScore, JhunjhunwalaScore
+            fundamental_collector = FundamentalCollector()
+            buffett_scorer = BuffettScore(fundamental_collector)
+            jhunjhunwala_scorer = JhunjhunwalaScore(fundamental_collector)
+            logger.info("Fundamental data collector and investment advisors initialized (Buffett + Jhunjhunwala)")
+        except Exception as e:
+            logger.warning(f"Fundamental/advisor init failed (will use fallbacks): {e}")
+
+        feature_pipeline = FeaturePipeline(db_manager=_db, av_collector=av_collector, fundamental_collector=fundamental_collector)
         xgboost_predictor = XGBoostPredictor()
         monte_carlo_sim = MonteCarloSimulator(av_collector=av_collector)
         portfolio_optimizer = PortfolioOptimizer(av_collector=av_collector)

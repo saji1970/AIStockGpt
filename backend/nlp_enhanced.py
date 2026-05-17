@@ -249,6 +249,34 @@ INTENT_REFERENCES = {
         "how accurate are predictions",
         "what features do you have",
     ],
+    "buffett_analysis": [
+        "buffett analysis of AAPL",
+        "is this a warren buffett stock",
+        "does MSFT have an economic moat",
+        "intrinsic value of GOOGL",
+        "margin of safety for TSLA",
+        "buffett score for AMZN",
+        "would warren buffett buy this stock",
+        "value investing analysis",
+    ],
+    "jhunjhunwala_analysis": [
+        "jhunjhunwala analysis of RELIANCE",
+        "is this a rakesh jhunjhunwala pick",
+        "multibagger potential of TATA",
+        "GARP analysis for INFY",
+        "jhunjhunwala score for HDFC",
+        "turnaround stock analysis",
+        "growth at reasonable price",
+    ],
+    "fundamental_analysis": [
+        "fundamental analysis of AAPL",
+        "show me fundamentals for MSFT",
+        "PE ratio and ROE of GOOGL",
+        "financial health of AMZN",
+        "earnings quality of TSLA",
+        "balance sheet analysis",
+        "income statement review",
+    ],
 }
 
 # Regex intent patterns (fallback)
@@ -390,6 +418,25 @@ REGEX_INTENT_PATTERNS = {
         r"help", r"what.*can.*you.*do", r"capabilities",
         r"how.*does.*it.*work", r"model.*information", r"ai.*model",
         r"neural.*network", r"lstm", r"how.*accurate", r"model.*performance",
+    ],
+    "buffett_analysis": [
+        r"buffett", r"warren\s*buff", r"economic\s*moat", r"moat\s*analysis",
+        r"intrinsic\s*value", r"margin\s*of\s*safety", r"value\s*invest",
+        r"buffett\s*score", r"would\s*buffett\s*buy", r"buffett\s*style",
+        r"durable\s*competitive\s*advantage", r"circle\s*of\s*competence",
+    ],
+    "jhunjhunwala_analysis": [
+        r"jhunjhunwala", r"rakesh", r"multibagger", r"multi\s*bagger",
+        r"garp\s*analysis", r"growth.*reasonable\s*price", r"turnaround\s*stock",
+        r"jhunjhunwala\s*score", r"jhunjhunwala\s*pick", r"jhunjhunwala\s*style",
+        r"10x\s*potential", r"hundred\s*bagger",
+    ],
+    "fundamental_analysis": [
+        r"fundamental\s*analysis", r"fundamentals?\s*(?:of|for)",
+        r"(?:pe|p/e)\s*ratio", r"\broe\b", r"\broa\b", r"roic",
+        r"balance\s*sheet", r"income\s*statement", r"cash\s*flow\s*analysis",
+        r"financial\s*health", r"earnings\s*quality", r"debt.*equity",
+        r"profit\s*margin", r"book\s*value", r"free\s*cash\s*flow",
     ],
 }
 

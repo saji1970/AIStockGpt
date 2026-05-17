@@ -52,9 +52,10 @@ class FeaturePipeline:
 
     _YF_SUFFIX_MAP = {'.BSE': '.BO', '.NSE': '.NS'}
 
-    def __init__(self, db_manager=None, av_collector=None):
+    def __init__(self, db_manager=None, av_collector=None, fundamental_collector=None):
         self.db_manager = db_manager
         self.av_collector = av_collector
+        self.fundamental_collector = fundamental_collector
 
     @staticmethod
     def _yf_symbol(symbol: str) -> str:
@@ -130,6 +131,7 @@ class FeaturePipeline:
         df = self._add_lag_features(df, has_volume=has_volume)
         df = self._add_time_features(df, asset_class=asset_class)
         df = self._add_macro_features(df)
+        df = self._add_fundamental_features(df, symbol)
 
         # Drop all-NaN columns
         all_nan_cols = [c for c in df.columns if df[c].isna().all()]
@@ -748,5 +750,73 @@ class FeaturePipeline:
 
         except Exception as e:
             logger.warning(f"Failed to add macro features: {e}")
+
+        return df
+
+    # ── fundamental features (quarterly, broadcast) ───────────────
+
+    _FUND_COLS = [
+        'fund_pe_ratio', 'fund_pb_ratio', 'fund_peg_ratio', 'fund_ev_ebitda',
+        'fund_roe', 'fund_roa', 'fund_profit_margin', 'fund_operating_margin',
+        'fund_debt_equity', 'fund_current_ratio', 'fund_interest_coverage',
+        'fund_fcf_yield', 'fund_dividend_yield', 'fund_revenue_cagr_3y',
+        'fund_eps_cagr_3y', 'fund_earnings_consistency', 'fund_roic',
+        'fund_buyback_yield', 'fund_margin_expansion', 'fund_beta',
+    ]
+
+    def _add_fundamental_features(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+        """Add fundamental features as constant columns (change quarterly).
+
+        XGBoost/LightGBM handle NaN natively, so assets without
+        fundamental data (forex, commodities, crypto) simply get NaN.
+        """
+        if self.fundamental_collector is None:
+            for col in self._FUND_COLS:
+                df[col] = np.nan
+            return df
+
+        try:
+            fundamentals = self.fundamental_collector.get_all_fundamentals(symbol)
+            if fundamentals is None:
+                for col in self._FUND_COLS:
+                    df[col] = np.nan
+                return df
+
+            metrics = self.fundamental_collector.compute_derived_metrics(fundamentals)
+
+            feature_map = {
+                'fund_pe_ratio': metrics.get('pe_ratio'),
+                'fund_pb_ratio': metrics.get('pb_ratio'),
+                'fund_peg_ratio': metrics.get('peg_ratio'),
+                'fund_ev_ebitda': metrics.get('ev_to_ebitda'),
+                'fund_roe': metrics.get('roe_ttm'),
+                'fund_roa': metrics.get('roa_ttm'),
+                'fund_profit_margin': metrics.get('profit_margin'),
+                'fund_operating_margin': metrics.get('operating_margin'),
+                'fund_debt_equity': metrics.get('debt_to_equity'),
+                'fund_current_ratio': metrics.get('current_ratio'),
+                'fund_interest_coverage': metrics.get('interest_coverage'),
+                'fund_fcf_yield': metrics.get('fcf_yield'),
+                'fund_dividend_yield': metrics.get('dividend_yield'),
+                'fund_revenue_cagr_3y': metrics.get('revenue_cagr_3y'),
+                'fund_eps_cagr_3y': metrics.get('eps_cagr_3y'),
+                'fund_earnings_consistency': metrics.get('earnings_consistency'),
+                'fund_roic': metrics.get('roic'),
+                'fund_buyback_yield': metrics.get('buyback_yield'),
+                'fund_margin_expansion': metrics.get('margin_expansion_3y'),
+                'fund_beta': metrics.get('beta'),
+            }
+
+            for col_name, value in feature_map.items():
+                df[col_name] = float(value) if value is not None else np.nan
+
+            n_valid = sum(1 for v in feature_map.values() if v is not None)
+            logger.info(f"Added {n_valid}/{len(feature_map)} fundamental features for {symbol}")
+
+        except Exception as e:
+            logger.warning(f"Failed to add fundamental features for {symbol}: {e}")
+            for col in self._FUND_COLS:
+                if col not in df.columns:
+                    df[col] = np.nan
 
         return df

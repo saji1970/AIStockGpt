@@ -254,6 +254,38 @@ class LLMProvider:
                 "technical analysis, sensitivity analysis, portfolio management, "
                 "and market insights."
             ),
+            "buffett_analysis": (
+                f"The user is asking for a Warren Buffett-style value investing analysis"
+                f"{' of ' + symbol if symbol else ''}. "
+                "Discuss economic moat (durable competitive advantage), intrinsic value, "
+                "margin of safety, financial health (low debt), earnings consistency, "
+                "and management quality (capital allocation, ROIC, buybacks). "
+                "Reference Buffett's principles: buy wonderful companies at fair prices, "
+                "invest within your circle of competence, and hold for the long term. "
+                "If Buffett score data is provided, incorporate the scores and sub-criteria "
+                "into your analysis with specific numbers."
+            ),
+            "jhunjhunwala_analysis": (
+                f"The user is asking for a Rakesh Jhunjhunwala-style GARP (Growth at "
+                f"Reasonable Price) analysis{' of ' + symbol if symbol else ''}. "
+                "Discuss growth acceleration (revenue and earnings CAGR), turnaround "
+                "potential (improving margins, earnings surprises), multibagger characteristics "
+                "(operating leverage, high growth rate), and value-for-growth (PEG ratio, "
+                "forward PE relative to growth). Reference Jhunjhunwala's philosophy: "
+                "buy growth stocks before the market recognizes them, hold conviction "
+                "picks for the long term, and identify turnaround stories. "
+                "If Jhunjhunwala score data is provided, incorporate the scores into analysis."
+            ),
+            "fundamental_analysis": (
+                f"The user is asking for a comprehensive fundamental analysis"
+                f"{' of ' + symbol if symbol else ''}. "
+                "Cover key areas: valuation (PE, PB, PEG, EV/EBITDA), profitability "
+                "(ROE, ROA, margins), financial health (debt/equity, current ratio, "
+                "interest coverage), growth (revenue and EPS CAGR), and cash flow quality "
+                "(FCF yield, FCF-to-net-income). If both Buffett and Jhunjhunwala scores "
+                "are provided, compare the two perspectives and explain what each philosophy "
+                "would say about the stock."
+            ),
         }
 
         context = intent_context.get(intent, intent_context["general_question"])
@@ -673,6 +705,26 @@ class LLMProvider:
             lines.append(f"- Max Drawdown: {risk.get('max_drawdown', 0):.1%}")
             lines.append(f"- Value at Risk (95%): {risk.get('var_95', 0):.2%} daily")
             lines.append(f"- Beta: {risk.get('beta', 0):.2f}")
+
+        if ml_results.get('buffett_score'):
+            bs = ml_results['buffett_score']
+            lines.append(f"\n**Warren Buffett Score: {bs.get('overall_score', 0):.0f}/100 ({bs.get('grade', 'N/A')})**\n")
+            lines.append(f"Verdict: {bs.get('verdict', 'N/A')}")
+            for c in bs.get('criteria', []):
+                lines.append(f"- {c.get('name', '')}: {c.get('score', 0):.0f}/100 - {c.get('detail', '')}")
+            narrative = bs.get('narrative', '')
+            if narrative:
+                lines.append(f"\n{narrative}")
+
+        if ml_results.get('jhunjhunwala_score'):
+            js = ml_results['jhunjhunwala_score']
+            lines.append(f"\n**Rakesh Jhunjhunwala (GARP) Score: {js.get('overall_score', 0):.0f}/100 ({js.get('grade', 'N/A')})**\n")
+            lines.append(f"Verdict: {js.get('verdict', 'N/A')}")
+            for c in js.get('criteria', []):
+                lines.append(f"- {c.get('name', '')}: {c.get('score', 0):.0f}/100 - {c.get('detail', '')}")
+            narrative = js.get('narrative', '')
+            if narrative:
+                lines.append(f"\n{narrative}")
 
         if not lines:
             return None

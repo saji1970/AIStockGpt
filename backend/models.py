@@ -27,6 +27,7 @@ class User(Base):
     last_name = Column(String(100), nullable=False)
     username = Column(String(50), unique=True, index=True, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    is_admin = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime(timezone=True), nullable=True)

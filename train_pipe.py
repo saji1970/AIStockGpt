@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse
 import uvicorn
 
@@ -78,6 +78,20 @@ app = FastAPI(
 )
 
 GIT_DIR = os.path.dirname(os.path.abspath(__file__))
+TRAIN_PIPE_SECRET = os.getenv("TRAIN_PIPE_SECRET", "")
+
+
+@app.middleware("http")
+async def _train_pipe_auth_middleware(request: Request, call_next):
+    """Optional shared secret for mutating endpoints (local admin UI proxies here)."""
+    if request.method in ("GET", "HEAD", "OPTIONS") and request.url.path in ("/", "/status", "/status/detail"):
+        return await call_next(request)
+    if not TRAIN_PIPE_SECRET:
+        return await call_next(request)
+    provided = request.headers.get("X-Train-Pipe-Secret") or request.headers.get("x-train-pipe-secret")
+    if provided != TRAIN_PIPE_SECRET:
+        return JSONResponse(status_code=401, content={"detail": "Invalid or missing X-Train-Pipe-Secret"})
+    return await call_next(request)
 
 
 def _reset_state(mode: str, symbols: List[str]) -> None:

@@ -8,7 +8,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, desc, distinct
+from sqlalchemy import func, desc, distinct, text
 from sqlalchemy.orm import joinedload
 
 from .db_session import SessionLocal
@@ -27,6 +27,20 @@ class DatabaseManager:
         """Initialize database session factory"""
         self._session_factory = SessionLocal
         logger.info("PostgreSQL DatabaseManager initialized")
+
+    def ensure_admin_schema(self) -> None:
+        """Add is_admin column on existing deployments (idempotent)."""
+        session = self._get_session()
+        try:
+            session.execute(
+                text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE")
+            )
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.warning(f"ensure_admin_schema: {e}")
+        finally:
+            session.close()
 
     def _get_session(self):
         return self._session_factory()
@@ -47,6 +61,7 @@ class DatabaseManager:
                 last_name=user_data['last_name'],
                 username=user_data.get('username'),
                 is_active=user_data.get('is_active', True),
+                is_admin=user_data.get('is_admin', False),
             )
             session.add(user)
             session.commit()
@@ -120,6 +135,130 @@ class DatabaseManager:
             return False
         finally:
             session.close()
+
+    def list_users(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        search: Optional[str] = None,
+        include_inactive: bool = True,
+    ) -> Dict[str, Any]:
+        """List users for admin UI (paginated)."""
+        session = self._get_session()
+        try:
+            q = session.query(User)
+            if not include_inactive:
+                q = q.filter(User.is_active.is_(True))
+            if search:
+                term = f"%{search.strip().lower()}%"
+                q = q.filter(
+                    (func.lower(User.email).like(term))
+                    | (func.lower(User.first_name).like(term))
+                    | (func.lower(User.last_name).like(term))
+                    | (func.lower(User.username).like(term))
+                )
+            total = q.count()
+            users = (
+                q.order_by(desc(User.created_at))
+                .offset(max(0, offset))
+                .limit(min(200, max(1, limit)))
+                .all()
+            )
+            return {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "users": [self.sanitize_user(self._user_to_dict(u)) for u in users],
+            }
+        except Exception as e:
+            logger.error(f"list_users failed: {e}")
+            return {"total": 0, "offset": offset, "limit": limit, "users": []}
+        finally:
+            session.close()
+
+    def delete_user(self, user_id: str) -> bool:
+        """Permanently delete a user and cascaded data."""
+        session = self._get_session()
+        try:
+            user = session.get(User, user_id)
+            if not user:
+                return False
+            session.delete(user)
+            session.commit()
+            logger.info(f"User deleted: {user_id}")
+            return True
+        except Exception as e:
+            session.rollback()
+            logger.error(f"delete_user failed for {user_id}: {e}")
+            return False
+        finally:
+            session.close()
+
+    def get_user_admin_detail(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """User profile plus activity counts for admin."""
+        session = self._get_session()
+        try:
+            user = session.get(User, user_id)
+            if not user:
+                return None
+            chat_count = (
+                session.query(func.count(ChatMessage.id))
+                .filter(ChatMessage.user_id == user_id)
+                .scalar()
+                or 0
+            )
+            portfolio_count = (
+                session.query(func.count(Portfolio.id))
+                .filter(Portfolio.user_id == user_id)
+                .scalar()
+                or 0
+            )
+            prediction_count = (
+                session.query(func.count(Prediction.id))
+                .filter(Prediction.user_id == user_id)
+                .scalar()
+                or 0
+            )
+            detail = self.sanitize_user(self._user_to_dict(user))
+            detail["stats"] = {
+                "chat_messages": chat_count,
+                "portfolios": portfolio_count,
+                "predictions": prediction_count,
+            }
+            return detail
+        except Exception as e:
+            logger.error(f"get_user_admin_detail failed: {e}")
+            return None
+        finally:
+            session.close()
+
+    def promote_admin_by_emails(self, emails: List[str]) -> int:
+        """Set is_admin=True for matching emails (bootstrap)."""
+        if not emails:
+            return 0
+        session = self._get_session()
+        try:
+            normalized = [e.strip().lower() for e in emails if e.strip()]
+            updated = (
+                session.query(User)
+                .filter(func.lower(User.email).in_(normalized))
+                .update({"is_admin": True, "updated_at": datetime.utcnow()}, synchronize_session=False)
+            )
+            session.commit()
+            return updated or 0
+        except Exception as e:
+            session.rollback()
+            logger.error(f"promote_admin_by_emails failed: {e}")
+            return 0
+        finally:
+            session.close()
+
+    @staticmethod
+    def sanitize_user(user: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove secrets before sending user dict to clients."""
+        out = dict(user)
+        out.pop("hashed_password", None)
+        return out
 
     # ------------------------------------------------------------------ #
     # Password Reset Tokens
@@ -854,6 +993,7 @@ class DatabaseManager:
             'last_name': user.last_name,
             'username': user.username,
             'is_active': user.is_active,
+            'is_admin': getattr(user, 'is_admin', False),
             'created_at': user.created_at,
             'updated_at': user.updated_at,
             'last_login': user.last_login,

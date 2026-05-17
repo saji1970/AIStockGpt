@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 # Security configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
+
+
+def _admin_email_allowlist() -> set:
+    raw = os.getenv("ADMIN_EMAILS", "")
+    return {e.strip().lower() for e in raw.split(",") if e.strip()}
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
@@ -46,6 +51,7 @@ class UserResponse(BaseModel):
     last_name: str
     username: Optional[str]
     is_active: bool
+    is_admin: bool = False
     created_at: datetime
 
 class Token(BaseModel):
@@ -194,6 +200,12 @@ class AuthManager:
             
             if not user.get("is_active", False):
                 return None
+
+            # Bootstrap admin from ADMIN_EMAILS env
+            email = (user.get("email") or "").lower()
+            if email in _admin_email_allowlist() and not user.get("is_admin"):
+                db_manager.update_user(user["user_id"], {"is_admin": True})
+                user["is_admin"] = True
             
             return user
         
@@ -224,6 +236,8 @@ class AuthManager:
         
         # Update last login
         db_manager.update_user(user["user_id"], {"last_login": datetime.utcnow()})
+
+        user = db_manager.get_user(user["user_id"]) or user
         
         return Token(
             access_token=access_token,
@@ -377,7 +391,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail="Inactive user"
         )
     
-    return user
+    return db_manager.sanitize_user(user)
 
 async def get_current_active_user(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     """Get current active user"""
@@ -385,5 +399,15 @@ async def get_current_active_user(current_user: Dict[str, Any] = Depends(get_cur
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
+        )
+    return db_manager.sanitize_user(current_user)
+
+
+async def get_current_admin(current_user: Dict[str, Any] = Depends(get_current_active_user)) -> Dict[str, Any]:
+    """Require an authenticated admin user."""
+    if not current_user.get("is_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
         )
     return current_user

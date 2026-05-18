@@ -48,5 +48,9 @@ ENV OLLAMA_MODEL=llama3.2
 ENV HF_API_TOKEN=
 ENV alphavantage_apikey=
 ENV STATIC_UI_DIR=/app/static/ui
+ENV GITHUB_TOKEN=
+ENV GITHUB_REPO=
+ENV GIT_USER_NAME="Railway Bot"
+ENV GIT_USER_EMAIL="railway-bot@users.noreply.github.com"
 
 CMD ["sh", "-c", "uvicorn backend.main_enhanced:app --host 0.0.0.0 --port ${PORT:-8080}"]

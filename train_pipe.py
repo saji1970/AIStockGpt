@@ -26,6 +26,7 @@ import json
 import logging
 import argparse
 import subprocess
+import shutil
 import threading
 from datetime import datetime
 from typing import Optional, Dict, Any, List
@@ -79,6 +80,78 @@ app = FastAPI(
 
 GIT_DIR = os.path.dirname(os.path.abspath(__file__))
 TRAIN_PIPE_SECRET = os.getenv("TRAIN_PIPE_SECRET", "")
+
+# ── GitHub / Railway env vars ────────────────────────────────
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "")          # e.g. "saji1970/AIStockGpt"
+GIT_USER_NAME = os.getenv("GIT_USER_NAME", "Railway Bot")
+GIT_USER_EMAIL = os.getenv("GIT_USER_EMAIL", "railway-bot@users.noreply.github.com")
+
+_CLONE_DIR = "/tmp/aistockgpt_repo"
+
+
+def _is_local_git() -> bool:
+    """Return True when a .git directory exists (local dev). False on Railway."""
+    return os.path.isdir(os.path.join(GIT_DIR, ".git"))
+
+
+def _ensure_clone() -> str:
+    """Shallow-clone the repo to _CLONE_DIR (or pull if it already exists).
+    Returns the path to the clone directory.
+    """
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        raise RuntimeError(
+            "GITHUB_TOKEN and GITHUB_REPO env vars must be set for Railway git operations. "
+            "Set them in the Railway dashboard."
+        )
+
+    repo_url = f"https://x-access-token:{GITHUB_TOKEN}@github.com/{GITHUB_REPO}.git"
+
+    if os.path.isdir(os.path.join(_CLONE_DIR, ".git")):
+        # Already cloned — pull latest
+        logger.info("Pulling latest into existing clone...")
+        result = subprocess.run(
+            ["git", "pull", "--ff-only"],
+            cwd=_CLONE_DIR, capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            logger.warning(f"git pull failed, re-cloning: {result.stderr}")
+            shutil.rmtree(_CLONE_DIR, ignore_errors=True)
+        else:
+            return _CLONE_DIR
+
+    # Fresh shallow clone
+    if os.path.exists(_CLONE_DIR):
+        shutil.rmtree(_CLONE_DIR, ignore_errors=True)
+
+    logger.info(f"Cloning {GITHUB_REPO} into {_CLONE_DIR}...")
+    result = subprocess.run(
+        ["git", "clone", "--depth", "1", repo_url, _CLONE_DIR],
+        capture_output=True, text=True, timeout=300,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"git clone failed: {result.stderr}")
+
+    # Configure user identity in clone
+    subprocess.run(["git", "config", "user.name", GIT_USER_NAME], cwd=_CLONE_DIR, check=True)
+    subprocess.run(["git", "config", "user.email", GIT_USER_EMAIL], cwd=_CLONE_DIR, check=True)
+
+    return _CLONE_DIR
+
+
+def _sync_models_to_clone(clone_dir: str) -> None:
+    """Copy /app/models/ (or local models/) into the clone's models/ directory."""
+    src = os.path.join(GIT_DIR, "models")
+    dst = os.path.join(clone_dir, "models")
+
+    if not os.path.isdir(src):
+        raise RuntimeError(f"Source models directory not found: {src}")
+
+    # Remove old models dir in clone and copy fresh
+    if os.path.exists(dst):
+        shutil.rmtree(dst)
+    shutil.copytree(src, dst)
+    logger.info(f"Synced models/ → {dst}")
 
 
 @app.middleware("http")
@@ -230,12 +303,12 @@ def _resolve_symbols(mode: Optional[str], symbols_csv: Optional[str]) -> (str, L
     return "full", list(ALL_SYMBOLS)
 
 
-def _git_run(*args: str) -> Dict[str, Any]:
+def _git_run(*args: str, cwd: Optional[str] = None) -> Dict[str, Any]:
     """Run a git command and return result dict."""
     try:
         result = subprocess.run(
             ["git"] + list(args),
-            cwd=GIT_DIR,
+            cwd=cwd or GIT_DIR,
             capture_output=True,
             text=True,
             timeout=120,
@@ -348,13 +421,25 @@ def commit(
                 pass
         message = f"Retrain {n_models} models via training pipeline"
 
+    if _is_local_git():
+        # Local dev — direct git commands
+        work_dir = None  # uses GIT_DIR default
+    else:
+        # Railway — clone, sync models, then commit in clone
+        try:
+            clone_dir = _ensure_clone()
+            _sync_models_to_clone(clone_dir)
+            work_dir = clone_dir
+        except RuntimeError as e:
+            return JSONResponse(status_code=500, content={"error": str(e)})
+
     # Stage model files
-    add_result = _git_run("add", "models/")
+    add_result = _git_run("add", "models/", cwd=work_dir)
     if not add_result["ok"]:
         return JSONResponse(status_code=500, content={"error": "git add failed", "detail": add_result})
 
     # Commit
-    commit_result = _git_run("commit", "-m", message)
+    commit_result = _git_run("commit", "-m", message, cwd=work_dir)
     if not commit_result["ok"]:
         # Check if "nothing to commit"
         if "nothing to commit" in commit_result["stdout"] or "nothing to commit" in commit_result["stderr"]:
@@ -366,6 +451,7 @@ def commit(
         "ok": True,
         "commit_message": message,
         "git_output": commit_result["stdout"],
+        "railway_mode": not _is_local_git(),
     }
 
 
@@ -375,15 +461,31 @@ def push(
     branch: Optional[str] = Query(None, description="Branch name (default: current)"),
 ):
     """Git push to remote."""
+    if _is_local_git():
+        work_dir = None
+    else:
+        # Railway — push from clone dir (must have committed first)
+        if not os.path.isdir(os.path.join(_CLONE_DIR, ".git")):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "No clone found. Run /commit first to clone and stage models."},
+            )
+        work_dir = _CLONE_DIR
+
     cmd = ["push", remote]
     if branch:
         cmd.append(branch)
 
-    result = _git_run(*cmd)
+    result = _git_run(*cmd, cwd=work_dir)
     if not result["ok"]:
         return JSONResponse(status_code=500, content={"error": "git push failed", "detail": result})
 
-    return {"message": "Pushed to remote", "ok": True, "git_output": result["stdout"] or result["stderr"]}
+    return {
+        "message": "Pushed to remote",
+        "ok": True,
+        "git_output": result["stdout"] or result["stderr"],
+        "railway_mode": not _is_local_git(),
+    }
 
 
 @app.post("/train-commit-push")
@@ -417,6 +519,17 @@ def train_commit_push(
             logger.error("Training failed - skipping commit & push")
             return
 
+        # Determine working directory (local vs Railway)
+        work_dir = None
+        if not _is_local_git():
+            try:
+                clone_dir = _ensure_clone()
+                _sync_models_to_clone(clone_dir)
+                work_dir = clone_dir
+            except RuntimeError as e:
+                logger.error(f"Railway clone/sync failed: {e}")
+                return
+
         # Commit
         succeeded = 0
         with _lock:
@@ -424,9 +537,9 @@ def train_commit_push(
                 succeeded = _state["results"].get("succeeded", 0)
 
         commit_msg = message or f"Retrain {succeeded} models via training pipeline"
-        add_r = _git_run("add", "models/")
+        add_r = _git_run("add", "models/", cwd=work_dir)
         if add_r["ok"]:
-            commit_r = _git_run("commit", "-m", commit_msg)
+            commit_r = _git_run("commit", "-m", commit_msg, cwd=work_dir)
             if commit_r["ok"]:
                 logger.info(f"Committed: {commit_msg}")
             else:
@@ -436,7 +549,7 @@ def train_commit_push(
         push_cmd = ["push", remote]
         if branch:
             push_cmd.append(branch)
-        push_r = _git_run(*push_cmd)
+        push_r = _git_run(*push_cmd, cwd=work_dir)
         if push_r["ok"]:
             logger.info("Pushed to remote")
         else:

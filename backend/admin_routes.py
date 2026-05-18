@@ -115,6 +115,8 @@ def _env_keys_status() -> Dict[str, Any]:
         "TRAIN_PIPE_SECRET": TRAIN_PIPE_SECRET,
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
         "OLLAMA_BASE_URL": os.getenv("OLLAMA_BASE_URL"),
+        "GITHUB_TOKEN": os.getenv("GITHUB_TOKEN"),
+        "GITHUB_REPO": os.getenv("GITHUB_REPO"),
     }
     return {name: _mask_secret(val) for name, val in keys.items()}
 

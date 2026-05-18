@@ -1604,6 +1604,23 @@ def generate_response(message: str, user_id: Optional[str] = None,
                 "confidence": confidence,
             }
 
+        # ---- Market news short-circuit (general market queries) ---- #
+        if intent == "market_news" and not symbol:
+            response_text, index_data = _handle_market_news(message)
+            if index_data and stock_data is None:
+                stock_data = index_data
+            if user_id and ENHANCED_MODULES_AVAILABLE:
+                try:
+                    db_manager.save_chat_message(user_id, message, response_text)
+                except Exception:
+                    pass
+            return {
+                "message": response_text,
+                "stockData": stock_data,
+                "charts": None,
+                "confidence": confidence,
+            }
+
         # ---- Buffett / Jhunjhunwala / Fundamental short-circuits ---- #
         if intent in ("buffett_analysis", "jhunjhunwala_analysis", "fundamental_analysis"):
             if not symbol:
@@ -1966,6 +1983,80 @@ def _handle_currency_conversion(symbol: str, stock_data: Optional[Dict] = None) 
     )
 
     return response
+
+
+def _handle_market_news(message: str) -> tuple:
+    """Fetch major market indices and return (response_text, representative_stock_data).
+
+    Returns real-time data for S&P 500, NASDAQ, and DOW (plus Nifty/Sensex
+    when the query mentions India).
+    """
+    ml = (message or "").lower()
+    is_india = any(k in ml for k in ("india", "indian", "nifty", "sensex", "bse", "nse"))
+
+    us_indices = [
+        ("^GSPC", "S&P 500"),
+        ("^IXIC", "NASDAQ"),
+        ("^DJI", "DOW Jones"),
+    ]
+    india_indices = [
+        ("^NSEI", "Nifty 50"),
+        ("^BSESN", "Sensex"),
+    ]
+
+    indices = india_indices + us_indices if is_india else us_indices + india_indices
+    results = []
+    first_stock_data = None
+
+    for sym, label in indices:
+        try:
+            data = fetch_stock_data(sym)
+            if data:
+                results.append((label, data))
+                if first_stock_data is None:
+                    first_stock_data = data
+        except Exception:
+            pass
+        # Stop after the primary group if we have enough data
+        if not is_india and len(results) >= 3:
+            break
+        if is_india and len(results) >= 5:
+            break
+
+    if not results:
+        return (
+            "I wasn't able to fetch live market data right now. "
+            "Please try again in a moment, or ask about a specific stock symbol.",
+            None,
+        )
+
+    lines = ["**Market Overview**\n"]
+    for label, d in results:
+        price = d["price"]
+        change = d["change"]
+        change_pct = d["changePercent"]
+        sign = "+" if change >= 0 else ""
+        arrow = "^" if change >= 0 else "v"
+        lines.append(
+            f"**{label}**: {price:,.2f}  {arrow} {sign}{change:.2f} ({sign}{change_pct:.2f}%)"
+        )
+
+    # Add a brief overall sentiment summary
+    up_count = sum(1 for _, d in results if d["change"] >= 0)
+    total = len(results)
+    if up_count == total:
+        sentiment = "Markets are trading **higher** across the board today."
+    elif up_count == 0:
+        sentiment = "Markets are trading **lower** across the board today."
+    elif up_count > total / 2:
+        sentiment = "Markets are **mostly higher** today with mixed signals."
+    else:
+        sentiment = "Markets are **mostly lower** today with mixed signals."
+
+    lines.append(f"\n{sentiment}")
+    lines.append("\nAsk about a specific stock for detailed analysis (e.g. *\"AAPL\"* or *\"RELIANCE.BSE\"*).")
+
+    return "\n".join(lines), first_stock_data
 
 
 def _handle_currency_investment() -> str:

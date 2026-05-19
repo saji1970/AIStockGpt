@@ -78,8 +78,40 @@ app = FastAPI(
     version="1.0.0",
 )
 
-GIT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TRAIN_PIPE_SECRET = os.getenv("TRAIN_PIPE_SECRET", "")
+
+
+def _find_git_root() -> str:
+    """Find the git repo root. Try git itself first, then walk up from SCRIPT_DIR and CWD."""
+    # 1. Ask git directly (works when git + .git exist)
+    for start_dir in [SCRIPT_DIR, os.getcwd()]:
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                cwd=start_dir, capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except Exception:
+            pass
+
+    # 2. Walk upward from SCRIPT_DIR looking for .git
+    d = SCRIPT_DIR
+    while True:
+        if os.path.isdir(os.path.join(d, ".git")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+
+    # 3. Fallback — use SCRIPT_DIR (Railway/Docker: no .git anywhere)
+    return SCRIPT_DIR
+
+
+GIT_DIR = _find_git_root()
+logger.info(f"GIT_DIR resolved to: {GIT_DIR} (has .git: {os.path.isdir(os.path.join(GIT_DIR, '.git'))})")
 
 # ── GitHub / Railway env vars ────────────────────────────────
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
@@ -328,6 +360,9 @@ def _git_run(*args: str, cwd: Optional[str] = None) -> Dict[str, Any]:
 def root():
     return {
         "service": "AI Stock GPT Training Pipeline",
+        "git_dir": GIT_DIR,
+        "local_git": _is_local_git(),
+        "railway_mode": not _is_local_git(),
         "endpoints": {
             "POST /train": "Trigger model training (params: mode=quick|full, symbols=AAPL,MSFT)",
             "GET  /status": "Check training status and progress",

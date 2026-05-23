@@ -28,7 +28,7 @@ def _to_yf_symbol(symbol: str) -> str:
 # Symbol pools by risk level and market
 SYMBOL_POOLS_US = {
     'conservative': [
-        'BND', 'AGG', 'TLT', 'VTI', 'GLD', 'VIG', 'SCHD', 'VYM', 'JNJ', 'PG',
+        'VTI', 'VOO', 'SCHD', 'VYM', 'VIG', 'BND', 'GLD', 'JNJ', 'PG', 'XLV',
     ],
     'moderate': [
         'VTI', 'QQQ', 'BND', 'GLD', 'VIG', 'AAPL', 'MSFT', 'GOOGL', 'JNJ', 'PG',
@@ -83,7 +83,7 @@ SYMBOL_POOLS_COMMODITY = {
 # Default pool when no market specified - US-only (most common default)
 SYMBOL_POOLS = {
     'conservative': [
-        'BND', 'AGG', 'TLT', 'VTI', 'GLD', 'VIG', 'SCHD', 'VYM', 'JNJ', 'PG',
+        'VTI', 'VOO', 'SCHD', 'VYM', 'VIG', 'BND', 'GLD', 'JNJ', 'PG', 'XLV',
     ],
     'moderate': [
         'VTI', 'QQQ', 'BND', 'GLD', 'VIG', 'AAPL', 'MSFT', 'GOOGL', 'JNJ', 'PG',
@@ -96,7 +96,7 @@ SYMBOL_POOLS = {
 # Static fallback allocations when live data is completely unavailable
 _STATIC_ALLOCATIONS = {
     'us': {
-        'conservative': {'BND': 0.30, 'AGG': 0.20, 'VTI': 0.20, 'GLD': 0.15, 'VIG': 0.15},
+        'conservative': {'VTI': 0.25, 'SCHD': 0.20, 'VIG': 0.15, 'BND': 0.25, 'GLD': 0.10, 'VYM': 0.05},
         'moderate':     {'VTI': 0.25, 'QQQ': 0.20, 'BND': 0.15, 'AAPL': 0.15, 'MSFT': 0.15, 'GLD': 0.10},
         'aggressive':   {'QQQ': 0.20, 'AAPL': 0.15, 'MSFT': 0.15, 'NVDA': 0.15, 'GOOGL': 0.15, 'AMZN': 0.10, 'TSLA': 0.10},
     },
@@ -106,7 +106,7 @@ _STATIC_ALLOCATIONS = {
         'aggressive':   {'INFY.BSE': 0.15, 'TATAMOTORS.BSE': 0.15, 'BAJFINANCE.BSE': 0.15, 'RELIANCE.BSE': 0.20, 'ADANIENT.BSE': 0.15, 'HCLTECH.BSE': 0.10, 'TITAN.BSE': 0.10},
     },
     'global': {
-        'conservative': {'BND': 0.25, 'AGG': 0.15, 'VTI': 0.20, 'GLD': 0.15, 'VIG': 0.15, 'SCHD': 0.10},
+        'conservative': {'VTI': 0.25, 'SCHD': 0.20, 'VIG': 0.15, 'BND': 0.25, 'GLD': 0.10, 'VYM': 0.05},
         'moderate':     {'VTI': 0.20, 'QQQ': 0.15, 'AAPL': 0.15, 'MSFT': 0.15, 'BND': 0.15, 'GLD': 0.10, 'GOOGL': 0.10},
         'aggressive':   {'QQQ': 0.20, 'AAPL': 0.15, 'NVDA': 0.15, 'MSFT': 0.15, 'GOOGL': 0.10, 'AMZN': 0.10, 'TSLA': 0.10, 'META': 0.05},
     },
@@ -279,8 +279,12 @@ class PortfolioOptimizer:
         symbols = pool[risk_level]
 
         # Choose optimization method based on risk level
+        # Note: min_volatility produces extreme bond-heavy portfolios (96%+ BND).
+        # Using max_sharpe for all levels produces balanced risk-adjusted allocations.
+        # The symbol pool itself controls risk exposure (conservative pool has more
+        # stable/dividend assets, aggressive pool has growth stocks).
         method_map = {
-            'conservative': 'min_volatility',
+            'conservative': 'max_sharpe',
             'moderate': 'max_sharpe',
             'aggressive': 'max_sharpe',
         }

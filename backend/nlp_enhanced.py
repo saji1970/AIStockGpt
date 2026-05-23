@@ -772,10 +772,24 @@ class EnhancedNLPProcessor:
         if risk_level is not None:
             entities["risk_level"] = risk_level
 
-        # Extract investment horizon
+        # Extract age and retirement age
+        current_age = self._extract_age(normalized)
+        if current_age is not None:
+            entities["user_age"] = current_age
+        retirement_age = self._extract_retirement_age(normalized)
+        if retirement_age is not None:
+            entities["retirement_age"] = retirement_age
+
+        # Extract investment horizon (or calculate from ages)
         horizon = self._extract_horizon(normalized)
         if horizon is not None:
             entities["horizon_months"] = horizon
+        elif current_age is not None and retirement_age is not None and retirement_age > current_age:
+            entities["horizon_months"] = (retirement_age - current_age) * 12
+        elif current_age is not None and retirement_age is None:
+            # Default retirement at 65
+            years_to_retire = max(1, 65 - current_age)
+            entities["horizon_months"] = years_to_retire * 12
 
         return entities
 
@@ -968,6 +982,42 @@ class EnhancedNLPProcessor:
         for kw in us_keywords:
             if kw in message:
                 return 'us'
+        return None
+
+    def _extract_age(self, message: str) -> Optional[int]:
+        """Extract the user's current age from the message."""
+        patterns = [
+            r'(?:my\s+)?(?:current\s+)?age\s+(?:is\s+)?(\d{1,3})',
+            r"i\s*(?:am|'m)\s+(\d{1,3})\s*(?:years?\s*old|yr)",
+            r"i\s*(?:am|'m)\s+(\d{1,3})\s*,",
+            r"i\s*(?:am|'m)\s+(\d{1,3})\s",
+            r'(\d{1,3})\s*years?\s*old',
+            r'born\s+(?:in\s+)?(\d{4})',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                val = int(match.group(1))
+                if val > 1900:  # birth year like "born in 1970"
+                    from datetime import date
+                    val = date.today().year - val
+                if 18 <= val <= 100:
+                    return val
+        return None
+
+    def _extract_retirement_age(self, message: str) -> Optional[int]:
+        """Extract the user's target retirement age from the message."""
+        patterns = [
+            r'retir(?:e|ement)\s+(?:at\s+)?(?:age\s+)?(\d{2})',
+            r'retirement\s+age\s+(?:is\s+)?(\d{2})',
+            r'retire\s+(?:by|at|when)\s+(\d{2})',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                val = int(match.group(1))
+                if 40 <= val <= 80:
+                    return val
         return None
 
     def _extract_risk_level(self, message: str) -> Optional[str]:

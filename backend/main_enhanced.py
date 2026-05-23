@@ -1402,27 +1402,29 @@ def generate_response(message: str, user_id: Optional[str] = None,
             if not entities.get("risk_level") and investor_profile.get("risk_tolerance"):
                 entities["risk_level"] = investor_profile["risk_tolerance"]
 
-            # Calculate age from DOB
-            if investor_profile.get("date_of_birth"):
+            # Calculate age from DOB only if NLP didn't extract age from message
+            if not entities.get("user_age") and investor_profile.get("date_of_birth"):
                 from datetime import date as _date_cls
                 _today = _date_cls.today()
                 _dob = investor_profile["date_of_birth"]
                 _age = _today.year - _dob.year - ((_today.month, _today.day) < (_dob.month, _dob.day))
                 entities["user_age"] = _age
 
-                # Estimate retirement horizon when not specified
-                if not entities.get("horizon_months") and intent == "retirement_planning":
-                    _years_to_retire = max(1, 65 - _age)
-                    entities["horizon_months"] = _years_to_retire * 12
+        # Calculate retirement horizon from age if not already set by NLP
+        if entities.get("user_age") and not entities.get("horizon_months") and intent == "retirement_planning":
+            _retire_at = entities.get("retirement_age", 65)
+            _years_to_retire = max(1, _retire_at - entities["user_age"])
+            entities["horizon_months"] = _years_to_retire * 12
 
-                # Derive risk from age if still missing
-                if not entities.get("risk_level"):
-                    if _age >= 55:
-                        entities["risk_level"] = "conservative"
-                    elif _age >= 40:
-                        entities["risk_level"] = "moderate"
-                    else:
-                        entities["risk_level"] = "moderate"
+        # Derive risk from age if still missing
+        if entities.get("user_age") and not entities.get("risk_level"):
+            _age = entities["user_age"]
+            if _age >= 60:
+                entities["risk_level"] = "conservative"
+            elif _age >= 50:
+                entities["risk_level"] = "moderate"
+            else:
+                entities["risk_level"] = "moderate"
 
         # Fetch real stock data if a symbol was detected (for ALL intents)
         stock_data = None
@@ -1471,7 +1473,7 @@ def generate_response(message: str, user_id: Optional[str] = None,
         # Portfolio optimizer + Monte Carlo for intents that benefit from allocation advice
         _allocation_intents = {
             "market_advice":       {"default_risk": "moderate", "default_horizon": 12},
-            "retirement_planning": {"default_risk": "conservative", "default_horizon": 120},
+            "retirement_planning": {"default_risk": "moderate", "default_horizon": 120},
             "income_strategy":     {"default_risk": "conservative", "default_horizon": 60},
             "risk_assessment":     {"default_risk": "conservative", "default_horizon": 12},
             "financial_planning":  {"default_risk": "moderate", "default_horizon": 60},

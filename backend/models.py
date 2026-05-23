@@ -32,6 +32,13 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime(timezone=True), nullable=True)
 
+    # Investor profile fields
+    date_of_birth = Column(Date, nullable=True)
+    risk_tolerance = Column(String(20), nullable=True)          # conservative, moderate, aggressive
+    investment_experience = Column(String(20), nullable=True)   # beginner, intermediate, advanced
+    occupation = Column(String(100), nullable=True)
+    investment_goal = Column(String(50), nullable=True)         # retirement, growth, income, wealth_preservation, education
+
     portfolios = relationship("Portfolio", back_populates="user", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
     predictions = relationship("Prediction", back_populates="user", cascade="all, delete-orphan")

@@ -75,7 +75,8 @@ try:
     from backend.email_service import email_service
     from backend.auth import (
         auth_manager, get_current_active_user, UserCreate, UserLogin, Token,
-        ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
+        ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest,
+        InvestorProfileUpdate
     )
     from backend.security import (
         SecurityMiddleware,
@@ -1388,6 +1389,41 @@ def generate_response(message: str, user_id: Optional[str] = None,
                 entities["market"] = "india"
                 confidence = max(confidence, 0.85)
 
+        # ---- Fetch investor profile and merge into entities ---- #
+        investor_profile = None
+        if user_id and ENHANCED_MODULES_AVAILABLE:
+            try:
+                investor_profile = db_manager.get_investor_profile(user_id)
+            except Exception as e:
+                logger.warning(f"Failed to fetch investor profile: {e}")
+
+        if investor_profile:
+            # Stored risk_tolerance fills in when NLP didn't extract one
+            if not entities.get("risk_level") and investor_profile.get("risk_tolerance"):
+                entities["risk_level"] = investor_profile["risk_tolerance"]
+
+            # Calculate age from DOB
+            if investor_profile.get("date_of_birth"):
+                from datetime import date as _date_cls
+                _today = _date_cls.today()
+                _dob = investor_profile["date_of_birth"]
+                _age = _today.year - _dob.year - ((_today.month, _today.day) < (_dob.month, _dob.day))
+                entities["user_age"] = _age
+
+                # Estimate retirement horizon when not specified
+                if not entities.get("horizon_months") and intent == "retirement_planning":
+                    _years_to_retire = max(1, 65 - _age)
+                    entities["horizon_months"] = _years_to_retire * 12
+
+                # Derive risk from age if still missing
+                if not entities.get("risk_level"):
+                    if _age >= 55:
+                        entities["risk_level"] = "conservative"
+                    elif _age >= 40:
+                        entities["risk_level"] = "moderate"
+                    else:
+                        entities["risk_level"] = "moderate"
+
         # Fetch real stock data if a symbol was detected (for ALL intents)
         stock_data = None
         symbol = entities.get("symbol")
@@ -1642,11 +1678,22 @@ def generate_response(message: str, user_id: Optional[str] = None,
                 "confidence": confidence,
             }
 
+        # ---- Fetch recent chat history for LLM context ---- #
+        chat_history = None
+        if user_id and ENHANCED_MODULES_AVAILABLE:
+            try:
+                _hist = db_manager.get_chat_history(user_id, limit=5)
+                if _hist:
+                    # Reverse so oldest is first (get_chat_history returns newest first)
+                    chat_history = list(reversed(_hist))
+            except Exception as e:
+                logger.warning(f"Failed to fetch chat history for context: {e}")
+
         # ---- Build response text ---- #
         if ml_results:
             # ML results available - use LLM or formatted template
             if llm_provider:
-                response_text = llm_provider.generate_response(intent, entities, message, ml_results=ml_results)
+                response_text = llm_provider.generate_response(intent, entities, message, ml_results=ml_results, chat_history=chat_history, investor_profile=investor_profile)
             else:
                 response_text = llm_provider._format_ml_results(ml_results) if llm_provider else ""
                 if not response_text:
@@ -1743,11 +1790,11 @@ def generate_response(message: str, user_id: Optional[str] = None,
                 elif entities.get("under_price_cap_inr") is not None:
                     response_text = _format_under_price_screening_inr(float(entities["under_price_cap_inr"]))
                 elif llm_provider:
-                    response_text = llm_provider.generate_response(intent, entities, message)
+                    response_text = llm_provider.generate_response(intent, entities, message, chat_history=chat_history, investor_profile=investor_profile)
                 else:
                     response_text = handle_market_advice(message, entities)
             elif llm_provider:
-                response_text = llm_provider.generate_response(intent, entities, message)
+                response_text = llm_provider.generate_response(intent, entities, message, chat_history=chat_history, investor_profile=investor_profile)
             else:
                 response_text = handle_general_question(message)
 
@@ -2693,6 +2740,55 @@ if ENHANCED_MODULES_AVAILABLE:
         """Get current user profile."""
         return current_user
 
+    @app.put("/auth/profile")
+    @rate_limit_authenticated
+    async def update_investor_profile(
+        profile_data: InvestorProfileUpdate,
+        current_user: Dict = Depends(get_current_active_user)
+    ):
+        """Update investor profile for personalized investment advice."""
+        try:
+            updates = {}
+
+            if profile_data.date_of_birth is not None:
+                from datetime import date as _date
+                updates['date_of_birth'] = _date.fromisoformat(profile_data.date_of_birth)
+
+            if profile_data.risk_tolerance is not None:
+                if profile_data.risk_tolerance not in ('conservative', 'moderate', 'aggressive'):
+                    raise HTTPException(status_code=400, detail="risk_tolerance must be conservative, moderate, or aggressive")
+                updates['risk_tolerance'] = profile_data.risk_tolerance
+
+            if profile_data.investment_experience is not None:
+                if profile_data.investment_experience not in ('beginner', 'intermediate', 'advanced'):
+                    raise HTTPException(status_code=400, detail="investment_experience must be beginner, intermediate, or advanced")
+                updates['investment_experience'] = profile_data.investment_experience
+
+            if profile_data.occupation is not None:
+                updates['occupation'] = profile_data.occupation[:100]
+
+            if profile_data.investment_goal is not None:
+                valid_goals = ('retirement', 'growth', 'income', 'wealth_preservation', 'education')
+                if profile_data.investment_goal not in valid_goals:
+                    raise HTTPException(status_code=400, detail=f"investment_goal must be one of: {', '.join(valid_goals)}")
+                updates['investment_goal'] = profile_data.investment_goal
+
+            if not updates:
+                raise HTTPException(status_code=400, detail="No profile fields to update")
+
+            success = db_manager.update_user(current_user["id"], updates)
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to update profile")
+
+            updated_user = db_manager.get_user(current_user["id"])
+            safe_user = {k: v for k, v in updated_user.items() if k != 'hashed_password'} if updated_user else {}
+            return {"message": "Investor profile updated successfully", "profile": safe_user}
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Profile update error: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update profile")
+
     @app.post("/auth/change-password")
     @rate_limit_sensitive
     async def change_password(
@@ -3273,6 +3369,7 @@ async def startup_event():
         Base.metadata.create_all(bind=engine)
         if ENHANCED_MODULES_AVAILABLE:
             db_manager.ensure_admin_schema()
+            db_manager.ensure_investor_profile_schema()
             admin_emails = os.getenv("ADMIN_EMAILS", "")
             if admin_emails.strip():
                 promoted = db_manager.promote_admin_by_emails(

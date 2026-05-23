@@ -75,6 +75,14 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
+class InvestorProfileUpdate(BaseModel):
+    """Investor profile update model for personalized investment advice"""
+    date_of_birth: Optional[str] = None         # ISO format: "1990-05-15"
+    risk_tolerance: Optional[str] = None        # conservative, moderate, aggressive
+    investment_experience: Optional[str] = None  # beginner, intermediate, advanced
+    occupation: Optional[str] = None
+    investment_goal: Optional[str] = None        # retirement, growth, income, wealth_preservation, education
+
 class AuthManager:
     """Manages authentication operations"""
     

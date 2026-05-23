@@ -42,6 +42,48 @@ class DatabaseManager:
         finally:
             session.close()
 
+    def ensure_investor_profile_schema(self) -> None:
+        """Add investor profile columns on existing deployments (idempotent)."""
+        session = self._get_session()
+        try:
+            for col_def in [
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_tolerance VARCHAR(20)",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS investment_experience VARCHAR(20)",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS occupation VARCHAR(100)",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS investment_goal VARCHAR(50)",
+            ]:
+                session.execute(text(col_def))
+            session.commit()
+            logger.info("Investor profile schema ensured")
+        except Exception as e:
+            session.rollback()
+            logger.warning(f"ensure_investor_profile_schema: {e}")
+        finally:
+            session.close()
+
+    def get_investor_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get investor profile fields for a user. Returns None if user not found."""
+        session = self._get_session()
+        try:
+            user = session.query(User).filter(User.id == user_id).first()
+            if not user:
+                return None
+            return {
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'date_of_birth': getattr(user, 'date_of_birth', None),
+                'risk_tolerance': getattr(user, 'risk_tolerance', None),
+                'investment_experience': getattr(user, 'investment_experience', None),
+                'occupation': getattr(user, 'occupation', None),
+                'investment_goal': getattr(user, 'investment_goal', None),
+            }
+        except Exception as e:
+            logger.error(f"Failed to get investor profile for {user_id}: {e}")
+            return None
+        finally:
+            session.close()
+
     def _get_session(self):
         return self._session_factory()
 
@@ -998,6 +1040,11 @@ class DatabaseManager:
             'created_at': user.created_at,
             'updated_at': user.updated_at,
             'last_login': user.last_login,
+            'date_of_birth': getattr(user, 'date_of_birth', None),
+            'risk_tolerance': getattr(user, 'risk_tolerance', None),
+            'investment_experience': getattr(user, 'investment_experience', None),
+            'occupation': getattr(user, 'occupation', None),
+            'investment_goal': getattr(user, 'investment_goal', None),
         }
 
     @staticmethod
